@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <title>ShareLyft - Ride-Sharing Platform for Kenya</title>
+    <meta name="description" content="Community-centered ride sharing for a more connected, sustainable future." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Single-page application support - redirect all requests to index.html
+      (function() {
+        if (window.location.pathname !== '/' && !window.location.pathname.includes('.')) {
+          var segments = window.location.pathname.split('/');
+          var lastSegment = segments[segments.length - 1];
+          if (lastSegment && !lastSegment.includes('.')) {
+            // Cache the original URL
+            sessionStorage.setItem('originalUrl', window.location.pathname + window.location.search);
+          }
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Handle routing for SPA
+      document.addEventListener('DOMContentLoaded', function() {
+        var originalUrl = sessionStorage.getItem('originalUrl');
+        if (originalUrl) {
+          sessionStorage.removeItem('originalUrl');
+          // This will be handled by React Router internally
+          // We don't need to do anything with it here, React Router will match the path
+        }
+      });
+    </script>
+  </body>
+</html>
