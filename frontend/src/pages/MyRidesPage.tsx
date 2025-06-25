@@ -32,15 +32,6 @@ interface Ride {
   created_at: string;
 }
 
-interface RideRequest {
-  id: string;
-  ride_id: string;
-  passengers: number;
-  message?: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  created_at: string;
-  ride: Ride;
-}
 
 export default function MyRidesPage() {
   const { user, token } = useAuth();
@@ -50,9 +41,6 @@ export default function MyRidesPage() {
 
   useEffect(() => {
     fetchMyRides();
-    if (user?.user_type === 'passenger') {
-      fetchMyRideRequests();
-    }
   }, [user]);
 
   const fetchMyRides = async () => {
@@ -79,16 +67,6 @@ export default function MyRidesPage() {
     }
   };
 
-  const fetchMyRideRequests = async () => {
-    try {
-      // For passengers, we need to fetch their ride requests
-      // This would require a new endpoint or modifying existing ones
-      // For now, we'll use a placeholder
-      setRideRequests([]);
-    } catch (err: any) {
-      console.error('Error fetching ride requests:', err);
-    }
-  };
 
   const handleDeleteRide = async (rideId: string) => {
     if (!confirm('Are you sure you want to delete this ride?')) return;
