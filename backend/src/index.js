@@ -32,8 +32,8 @@ app.use((req, res, next) => {
   console.log('Body:', JSON.stringify(req.body, null, 2));
   console.log('========================');
   
-  // Also log to file for debugging
-  require('fs').appendFileSync('requests.log', logMessage + '\n');
+  // File logging disabled for serverless deployment
+  // require('fs').appendFileSync('requests.log', logMessage + '\n');
   next();
 });
 
@@ -69,7 +69,8 @@ app.post('/debug-ride-request/:id', (req, res) => {
   console.log('Params:', req.params);
   console.log('Body:', req.body);
   console.log('Headers:', req.headers);
-  require('fs').appendFileSync('debug.log', `Emergency endpoint hit: ${JSON.stringify({ params: req.params, body: req.body })}\n`);
+  // File logging disabled for serverless deployment
+  // require('fs').appendFileSync('debug.log', `Emergency endpoint hit: ${JSON.stringify({ params: req.params, body: req.body })}\n`);
   res.json({ message: 'Debug endpoint reached successfully', received: { params: req.params, body: req.body } });
 });
 
