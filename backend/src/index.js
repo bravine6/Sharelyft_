@@ -16,7 +16,7 @@ const app = express();
 app.use(helmet()); // Security headers
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://sharelyft.com', 'https://www.sharelyft.com', 'https://sharelyft-frontend-git-main-bravines-projects.vercel.app', 'https://sharelyft-frontend-k395tdvsc-bravines-projects.vercel.app'] 
+    ? [/\.vercel\.app$/, 'https://sharelyft.com', 'https://www.sharelyft.com'] 
     : ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 })); // CORS handling
