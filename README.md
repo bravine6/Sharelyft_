@@ -6,8 +6,8 @@ ShareLyft is a community-centered ride-sharing platform designed for the Kenyan 
 
 The project is organized into two main parts:
 
-- **Frontend**: Next.js application with React components, Tailwind CSS for styling
-- **Backend**: Express.js API with Supabase integration for database and authentication
+- **Frontend**: - React 18 + TypeScript, Vite, Tailwind CSS, Lucide React Icons, React Router
+- **Backend**: - Node.js + Express, Supabase (PostgreSQL), JWT Authentication, Multer for file uploads
 
 ## Core Features
 
@@ -28,16 +28,19 @@ The project is organized into two main parts:
 ### Frontend Setup
 
 1. Navigate to the frontend directory:
+
    ```
    cd frontend
    ```
 
 2. Install dependencies:
+
    ```
    npm install
    ```
 
 3. Start the development server:
+
    ```
    npm run dev
    ```
@@ -47,21 +50,25 @@ The project is organized into two main parts:
 ### Backend Setup
 
 1. Navigate to the backend directory:
+
    ```
    cd backend
    ```
 
 2. Install dependencies:
+
    ```
    npm install
    ```
 
 3. Create a `.env` file based on `.env.example` and configure your environment variables:
+
    ```
    cp .env.example .env
    ```
 
 4. Start the development server:
+
    ```
    npm run dev
    ```
@@ -71,12 +78,13 @@ The project is organized into two main parts:
 ## Technologies Used
 
 ### Frontend
+
 - Next.js (React framework)
 - Tailwind CSS (styling)
 - Context API (state management)
-- Leaflet (maps)
 
 ### Backend
+
 - Node.js with Express
 - Supabase (database and authentication)
 - JWT (authentication)
@@ -85,6 +93,7 @@ The project is organized into two main parts:
 ## Development Roadmap
 
 ### Phase 1: MVP
+
 - Basic user authentication
 - Ride offering and requesting
 - Simple profiles
@@ -92,6 +101,7 @@ The project is organized into two main parts:
 - Basic admin dashboard
 
 ### Phase 2: Enhanced Features
+
 - In-app chat
 - Enhanced profiles
 - Ratings and reviews
@@ -99,6 +109,7 @@ The project is organized into two main parts:
 - Advanced search and filters
 
 ### Phase 3: Growth & Optimization
+
 - Route suggestions
 - Recurring rides
 - Carpool matching
