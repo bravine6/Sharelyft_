@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { API_URL } from '@/config';
 import { useCounties, useTownsByCounty } from '@/hooks/useLocations';
 import { 
-  MapPin, 
   Calendar, 
   Clock, 
   Users, 
@@ -158,7 +157,7 @@ export default function OfferRidePage() {
         throw new Error(errorData.message || 'Failed to create ride');
       }
       
-      const createdRide = await response.json();
+      await response.json();
       
       setFormSuccess('Your ride has been posted successfully!');
       

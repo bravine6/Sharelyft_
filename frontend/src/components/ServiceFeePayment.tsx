@@ -11,8 +11,7 @@ import {
   Lock, 
   Unlock, 
   MessageSquare, 
-  Phone, 
-  Mail,
+  Phone,
   CheckCircle,
   AlertCircle,
   Loader2

@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { API_URL } from '@/config';
 import { MapPin, Clock, Users, Car, Search, PlusCircle, TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -28,11 +27,6 @@ interface Ride {
 export default function DashboardPage() {
   const { user, token, isLoading: authLoading } = useAuth();
   const [upcomingRides, setUpcomingRides] = useState<Ride[]>([]);
-  const [popularRoutes, setPopularRoutes] = useState([
-    { from: "Nairobi", to: "Nakuru", time: "2h 30m", price: "800" },
-    { from: "Nairobi", to: "Mombasa", time: "8h", price: "1,500" },
-    { from: "Nairobi", to: "Kisumu", time: "5h", price: "1,200" },
-  ]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   

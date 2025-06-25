@@ -5,7 +5,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { API_URL } from '@/config';
-import { useCounties, useTownsByCounty, getCountyById, getTownById } from '@/hooks/useLocations';
+import { useCounties, useTownsByCounty } from '@/hooks/useLocations';
 import { MapPin, Clock, Users, Car, Search, Filter, Calendar, DollarSign } from 'lucide-react';
 import RideRequestModal from '@/components/RideRequestModal';
 
@@ -22,7 +22,6 @@ interface Ride {
 
 export default function FindRidesPage() {
   const { token } = useAuth();
-  const navigate = useNavigate();
   
   const [searchParams, setSearchParams] = useState({
     origin: '',

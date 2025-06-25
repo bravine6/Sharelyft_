@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { API_URL } from '@/config';
-import { X, Users, MessageSquare, MapPin, Clock, DollarSign } from 'lucide-react';
+import { X, Users, MapPin, Clock, DollarSign } from 'lucide-react';
 
 interface Ride {
   id: string;

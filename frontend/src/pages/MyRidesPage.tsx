@@ -4,19 +4,15 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import ServiceFeePayment from '@/components/ServiceFeePayment';
-import ContactInformation from '@/components/ContactInformation';
 import { API_URL } from '@/config';
 import { 
   MapPin, 
   Clock, 
   Users, 
-  DollarSign, 
-  Calendar,
+  DollarSign,
   Car,
   Edit,
-  Trash2,
-  CreditCard
+  Trash2
 } from 'lucide-react';
 
 interface Ride {
@@ -49,10 +45,8 @@ interface RideRequest {
 export default function MyRidesPage() {
   const { user, token } = useAuth();
   const [rides, setRides] = useState<Ride[]>([]);
-  const [rideRequests, setRideRequests] = useState<RideRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMyRides();
