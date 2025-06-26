@@ -5,7 +5,6 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import RidePostingPayment from '@/components/RidePostingPayment';
-import { API_URL } from '@/config';
 import { useCounties, useTownsByCounty } from '@/hooks/useLocations';
 import { 
   Calendar, 
@@ -19,7 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function OfferRidePage() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
@@ -48,9 +47,8 @@ export default function OfferRidePage() {
   
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [pendingRideData, setPendingRideData] = useState(null);
+  const [pendingRideData, setPendingRideData] = useState<any>(null);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -147,7 +145,7 @@ export default function OfferRidePage() {
     setShowPaymentModal(true);
   };
 
-  const handlePaymentSuccess = (rideId: string) => {
+  const handlePaymentSuccess = (_rideId: string) => {
     setShowPaymentModal(false);
     setFormSuccess('Your ride has been posted successfully!');
     
@@ -438,9 +436,9 @@ export default function OfferRidePage() {
                 <Button
                   type="submit"
                   className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
-                  disabled={isSubmitting}
+                  disabled={false}
                 >
-                  {isSubmitting ? 'Posting Your Ride...' : 'Post Your Ride'}
+                  Post Your Ride
                 </Button>
               </form>
             </CardContent>

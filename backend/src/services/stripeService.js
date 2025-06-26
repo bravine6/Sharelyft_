@@ -2,20 +2,32 @@ const Stripe = require('stripe');
 
 class StripeService {
   constructor() {
-    this.stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-    this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    this.isEnabled = !!process.env.STRIPE_SECRET_KEY;
     
-    // Validate required environment variables
-    this.validateConfig();
+    if (this.isEnabled) {
+      this.stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+      this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      console.log('Stripe service initialized successfully');
+    } else {
+      console.log('Stripe service disabled - missing STRIPE_SECRET_KEY environment variable');
+      this.stripe = null;
+      this.webhookSecret = null;
+    }
   }
 
   validateConfig() {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      throw new Error('Missing STRIPE_SECRET_KEY environment variable');
+    if (!this.isEnabled) {
+      throw new Error('Stripe service is not enabled. Please configure STRIPE_SECRET_KEY environment variable.');
     }
   }
 
   async createPaymentIntent(amount, currency = 'usd', metadata = {}) {
+    if (!this.isEnabled) {
+      return {
+        success: false,
+        error: 'Stripe service is not enabled'
+      };
+    }
     try {
       // Convert KSh to USD (rough conversion for demo - 1 USD = 150 KSh)
       // In production, use real exchange rates
@@ -54,6 +66,12 @@ class StripeService {
   }
 
   async confirmPayment(paymentIntentId) {
+    if (!this.isEnabled) {
+      return {
+        success: false,
+        error: 'Stripe service is not enabled'
+      };
+    }
     try {
       const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
       return {
@@ -71,6 +89,12 @@ class StripeService {
   }
 
   async createCustomer(email, name, phone) {
+    if (!this.isEnabled) {
+      return {
+        success: false,
+        error: 'Stripe service is not enabled'
+      };
+    }
     try {
       const customer = await this.stripe.customers.create({
         email: email,
@@ -95,6 +119,12 @@ class StripeService {
   }
 
   async processWebhook(body, signature) {
+    if (!this.isEnabled) {
+      return {
+        success: false,
+        error: 'Stripe service is not enabled'
+      };
+    }
     try {
       if (!this.webhookSecret) {
         throw new Error('Webhook secret not configured');
@@ -120,6 +150,12 @@ class StripeService {
   }
 
   async refundPayment(paymentIntentId, amount = null, reason = 'requested_by_customer') {
+    if (!this.isEnabled) {
+      return {
+        success: false,
+        error: 'Stripe service is not enabled'
+      };
+    }
     try {
       const refundData = {
         payment_intent: paymentIntentId,
@@ -151,6 +187,12 @@ class StripeService {
 
   // Get payment method for card details
   async getPaymentMethod(paymentMethodId) {
+    if (!this.isEnabled) {
+      return {
+        success: false,
+        error: 'Stripe service is not enabled'
+      };
+    }
     try {
       const paymentMethod = await this.stripe.paymentMethods.retrieve(paymentMethodId);
       return {
