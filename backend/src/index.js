@@ -5,9 +5,13 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 // Import routes
+const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const rideRoutes = require('./routes/rideRoutes');
 const locationRoutes = require('./routes/locationRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const paymentMethodsRoutes = require('./routes/paymentMethodsRoutes');
+const ridePaymentRoutes = require('./routes/ridePaymentRoutes');
 
 // Initialize express app
 const app = express();
@@ -75,10 +79,16 @@ app.post('/debug-ride-request/:id', (req, res) => {
 });
 
 // API routes
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/rides', rideRoutes);
+app.use('/api/rides', ridePaymentRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/service-fee', require('./routes/serviceFeeRoutes'));
+app.use('/api/mpesa', require('./routes/mpesaRoutes'));
+app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/api/profile', profileRoutes);
+app.use('/api/payment-methods', paymentMethodsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

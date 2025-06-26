@@ -70,8 +70,9 @@ export default function ServiceFeePayment({ rideRequestId, onPaymentSuccess }: S
   };
 
   const handlePayment = async () => {
-    if (selectedPaymentMethod === 'mpesa' && !mpesaPhone) {
-      setError('Please enter your M-Pesa phone number');
+    // Validate payment method specific requirements
+    if ((selectedPaymentMethod === 'mpesa' || selectedPaymentMethod === 'pesalink') && !mpesaPhone) {
+      setError(`Please enter your ${selectedPaymentMethod === 'mpesa' ? 'M-Pesa' : ''} phone number`);
       return;
     }
 
@@ -81,12 +82,13 @@ export default function ServiceFeePayment({ rideRequestId, onPaymentSuccess }: S
 
     try {
       const paymentData = {
-        ride_request_id: rideRequestId,
-        payment_method_type: selectedPaymentMethod,
-        ...(selectedPaymentMethod === 'mpesa' && { mpesa_phone: mpesaPhone })
+        rideRequestId: rideRequestId,
+        paymentMethod: selectedPaymentMethod,
+        ...(selectedPaymentMethod === 'mpesa' && { phoneNumber: mpesaPhone }),
+        ...(selectedPaymentMethod === 'pesalink' && { phoneNumber: mpesaPhone })
       };
 
-      const response = await fetch(`${API_URL}/service-fee/pay`, {
+      const response = await fetch(`${API_URL}/payments/service-fee/pay`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,8 +100,19 @@ export default function ServiceFeePayment({ rideRequestId, onPaymentSuccess }: S
       const data = await response.json();
 
       if (response.ok) {
-        setSuccess('Service fee paid successfully! 🎉');
+        let successMessage = 'Service fee payment initiated! 🎉';
+        
+        if (selectedPaymentMethod === 'mpesa') {
+          successMessage = 'M-Pesa STK Push sent! Check your phone to complete payment.';
+        } else if (selectedPaymentMethod === 'pesalink') {
+          successMessage = 'PesaLink payment initiated! You should receive an SMS prompt.';
+        } else if (selectedPaymentMethod === 'stripe') {
+          successMessage = 'Card payment initiated! Complete payment to proceed.';
+        }
+
+        setSuccess(successMessage);
         await fetchConnectionStatus(); // Refresh status
+        
         if (onPaymentSuccess) {
           onPaymentSuccess();
         }
@@ -274,9 +287,9 @@ export default function ServiceFeePayment({ rideRequestId, onPaymentSuccess }: S
                   </button>
                   
                   <button
-                    onClick={() => setSelectedPaymentMethod('card')}
+                    onClick={() => setSelectedPaymentMethod('stripe')}
                     className={`p-3 border rounded-lg flex items-center justify-center transition-colors ${
-                      selectedPaymentMethod === 'card' 
+                      selectedPaymentMethod === 'stripe' 
                         ? 'border-green-500 bg-green-50 text-green-700' 
                         : 'border-gray-300 hover:border-gray-400'
                     }`}
@@ -286,24 +299,24 @@ export default function ServiceFeePayment({ rideRequestId, onPaymentSuccess }: S
                   </button>
                   
                   <button
-                    onClick={() => setSelectedPaymentMethod('wallet')}
+                    onClick={() => setSelectedPaymentMethod('pesalink')}
                     className={`p-3 border rounded-lg flex items-center justify-center transition-colors ${
-                      selectedPaymentMethod === 'wallet' 
+                      selectedPaymentMethod === 'pesalink' 
                         ? 'border-green-500 bg-green-50 text-green-700' 
                         : 'border-gray-300 hover:border-gray-400'
                     }`}
                   >
                     <Wallet className="w-5 h-5 mr-2" />
-                    Wallet
+                    PesaLink
                   </button>
                 </div>
               </div>
 
-              {/* M-Pesa Phone Number */}
-              {selectedPaymentMethod === 'mpesa' && (
+              {/* Payment Method Specific Fields */}
+              {(selectedPaymentMethod === 'mpesa' || selectedPaymentMethod === 'pesalink') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    M-Pesa Phone Number
+                    {selectedPaymentMethod === 'mpesa' ? 'M-Pesa Phone Number' : 'Phone Number'}
                   </label>
                   <input
                     type="tel"
@@ -312,6 +325,18 @@ export default function ServiceFeePayment({ rideRequestId, onPaymentSuccess }: S
                     placeholder="0712345678"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
+                </div>
+              )}
+
+              {selectedPaymentMethod === 'stripe' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center text-blue-800">
+                    <CreditCard className="w-5 h-5 mr-2" />
+                    <span className="font-medium">Credit/Debit Card Payment</span>
+                  </div>
+                  <p className="text-blue-700 text-sm mt-1">
+                    You'll be redirected to complete your card payment securely.
+                  </p>
                 </div>
               )}
 

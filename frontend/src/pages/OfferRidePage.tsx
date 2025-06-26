@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import RidePostingPayment from '@/components/RidePostingPayment';
 import { API_URL } from '@/config';
 import { useCounties, useTownsByCounty } from '@/hooks/useLocations';
 import { 
@@ -48,6 +49,8 @@ export default function OfferRidePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingRideData, setPendingRideData] = useState(null);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -139,54 +142,40 @@ export default function OfferRidePage() {
       description: formData.description
     };
     
-    setIsSubmitting(true);
+    // Store ride data and show payment modal
+    setPendingRideData(rideData);
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = (rideId: string) => {
+    setShowPaymentModal(false);
+    setFormSuccess('Your ride has been posted successfully!');
     
-    try {
-      // Create ride via API
-      const response = await fetch(`${API_URL}/rides`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(rideData)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create ride');
-      }
-      
-      await response.json();
-      
-      setFormSuccess('Your ride has been posted successfully!');
-      
-      // Reset form
-      setFormData({
-        origin: '',
-        destination: '',
-        origin_county: '',
-        origin_town: '',
-        destination_county: '',
-        destination_town: '',
-        date: '',
-        time: '',
-        available_seats: 1,
-        price: '',
-        vehicle_id: '',
-        description: ''
-      });
-      
-      // Redirect after a short delay
-      setTimeout(() => {
-        navigate('/my-rides');
-      }, 2000);
-      
-    } catch (error: any) {
-      setFormError(error.message || 'An error occurred while posting your ride');
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Reset form
+    setFormData({
+      origin: '',
+      destination: '',
+      origin_county: '',
+      origin_town: '',
+      destination_county: '',
+      destination_town: '',
+      date: '',
+      time: '',
+      available_seats: 1,
+      price: '',
+      vehicle_id: '',
+      description: ''
+    });
+    
+    // Redirect to rides management after 2 seconds
+    setTimeout(() => {
+      navigate('/my-rides');
+    }, 2000);
+  };
+
+  const handlePaymentModalClose = () => {
+    setShowPaymentModal(false);
+    setPendingRideData(null);
   };
 
   return (
@@ -515,6 +504,16 @@ export default function OfferRidePage() {
           </Card>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && pendingRideData && (
+        <RidePostingPayment
+          isOpen={showPaymentModal}
+          onClose={handlePaymentModalClose}
+          rideData={pendingRideData}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
     </DashboardLayout>
   );
 }

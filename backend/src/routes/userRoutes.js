@@ -4,12 +4,14 @@ const auth = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// Auth routes
-router.post('/register', userController.register);
-router.post('/login', userController.login);
+// Admin routes (protected)
+router.get('/', auth, userController.getAllUsers);
+router.get('/:id', auth, userController.getUserById);
+router.delete('/:id', auth, userController.deleteUser);
 
-// Protected user routes
-router.get('/profile', auth, userController.getProfile);
-router.put('/profile', auth, userController.updateProfile);
+// Test route
+router.get('/test', (req, res) => {
+  res.json({ message: 'User routes working!' });
+});
 
 module.exports = router;

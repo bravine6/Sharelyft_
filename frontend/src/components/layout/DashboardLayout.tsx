@@ -13,7 +13,9 @@ import {
   Clock, 
   MessageSquare, 
   Settings,
-  FileText
+  FileText,
+  Shield,
+  CreditCard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -42,6 +44,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     ...(user?.user_type === 'driver' ? [{ name: 'Ride Requests', path: '/ride-requests', icon: <FileText size={20} /> }] : []),
     ...(user?.user_type === 'passenger' ? [{ name: 'My Requests', path: '/my-ride-requests', icon: <FileText size={20} /> }] : []),
     { name: 'Messages', path: '/messages', icon: <MessageSquare size={20} /> },
+    { name: 'Profile', path: '/profile', icon: <User size={20} /> },
+    { name: 'Verification', path: '/verification', icon: <Shield size={20} /> },
+    { name: 'Payment Methods', path: '/payment-methods', icon: <CreditCard size={20} /> },
     { name: 'Settings', path: '/settings', icon: <Settings size={20} /> },
   ];
 
@@ -69,7 +74,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex items-center space-x-4">
             <div className="hidden md:flex items-center space-x-2">
               <div className="text-right">
-                <div className="text-sm font-medium text-gray-900">{user?.name}</div>
+                <div className="text-sm font-medium text-gray-900">{user?.first_name}</div>
                 <div className="text-xs text-gray-500">{user?.email}</div>
               </div>
               <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
@@ -124,7 +129,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       <User className="w-4 h-4 text-gray-600" />
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{user?.name}</div>
+                      <div className="text-sm font-medium text-gray-900">{user?.first_name}</div>
                       <div className="text-xs text-gray-500">{user?.email}</div>
                     </div>
                   </div>

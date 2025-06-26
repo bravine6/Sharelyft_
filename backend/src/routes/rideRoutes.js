@@ -15,6 +15,7 @@ router.get('/search', rideController.searchRides);
 router.get('/statistics', rideController.getRideStatistics);
 router.get('/activity', rideController.getRecentActivity);
 router.get('/my-requests', rideController.getUserRideRequests);
+router.get('/requests/:requestId', rideController.getRideRequestDetails);
 router.get('/:id', rideController.getRideById);
 router.get('/:id/requests', rideController.getRideRequests);
 router.put('/:id', rideController.updateRide);

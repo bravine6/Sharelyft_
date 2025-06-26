@@ -4,9 +4,14 @@ import { API_URL } from '@/config';
 interface User {
   id: string;
   email: string;
-  name: string;
+  first_name: string;
+  national_id: string;
+  date_of_birth: string;
+  gender: 'male' | 'female' | 'other';
   phone: string;
   user_type: 'driver' | 'passenger';
+  email_verified: boolean;
+  phone_verified: boolean;
 }
 
 interface AuthContextType {
@@ -18,6 +23,12 @@ interface AuthContextType {
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
   updateProfile: (userData: Partial<User>) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, newPassword: string) => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
+  verifyPhone: (phone: string, code: string) => Promise<void>;
+  resendEmailVerification: (email: string) => Promise<void>;
+  resendPhoneVerification: (phone: string) => Promise<void>;
 }
 
 interface AuthProviderProps {
@@ -27,7 +38,10 @@ interface AuthProviderProps {
 interface RegisterData {
   email: string;
   password: string;
-  name: string;
+  first_name: string;
+  national_id: string;
+  date_of_birth: string;
+  gender: string;
   phone: string;
   user_type?: string;
 }
@@ -66,7 +80,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const fetchUser = async (currentToken: string) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_URL}/users/profile`, {
+      const response = await fetch(`${API_URL}/auth/profile`, {
         headers: {
           'Authorization': `Bearer ${currentToken}`
         }
@@ -91,7 +105,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_URL}/users/login`, {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -122,7 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const register = async (userData: RegisterData) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_URL}/users/register`, {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -135,8 +149,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error(error.message || 'Registration failed');
       }
 
-      // Registration successful, now login
-      await login(userData.email, userData.password);
+      // Registration successful - email and phone verification required
+      const result = await response.json();
+      return result;
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -150,7 +165,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_URL}/users/profile`, {
+      const response = await fetch(`${API_URL}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -174,6 +189,138 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to send reset email');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (token: string, newPassword: string) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ token, newPassword })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to reset password');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
+  };
+
+  const verifyEmail = async (token: string) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/verify-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ token })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Email verification failed');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Email verification error:', error);
+      throw error;
+    }
+  };
+
+  const verifyPhone = async (phone: string, code: string) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/verify-phone`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ phone, code })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Phone verification failed');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Phone verification error:', error);
+      throw error;
+    }
+  };
+
+  const resendEmailVerification = async (email: string) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/resend-email-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to resend verification email');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Resend email verification error:', error);
+      throw error;
+    }
+  };
+
+  const resendPhoneVerification = async (phone: string) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/resend-phone-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ phone })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to resend verification code');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Resend phone verification error:', error);
+      throw error;
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -189,7 +336,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     register,
     logout,
-    updateProfile
+    updateProfile,
+    forgotPassword,
+    resetPassword,
+    verifyEmail,
+    verifyPhone,
+    resendEmailVerification,
+    resendPhoneVerification
   };
 
   return (

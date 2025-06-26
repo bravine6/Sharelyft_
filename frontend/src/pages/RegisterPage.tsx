@@ -6,22 +6,45 @@ import { Car } from 'lucide-react';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
+    first_name: '',
+    national_id: '',
+    date_of_birth: '',
+    gender: 'male',
     phone: '',
+    email: '',
     password: '',
     confirmPassword: '',
-    userType: 'passenger',
+    user_type: 'passenger',
   });
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registrationStep, setRegistrationStep] = useState('form'); // 'form' | 'verification'
   
   const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Format phone number with +254 prefix
+    if (name === 'phone') {
+      let formattedPhone = value.replace(/\D/g, ''); // Remove non-digits
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = '+254' + formattedPhone.substring(1);
+      } else if (!formattedPhone.startsWith('254') && !formattedPhone.startsWith('+254')) {
+        formattedPhone = '+254' + formattedPhone;
+      } else if (formattedPhone.startsWith('254')) {
+        formattedPhone = '+' + formattedPhone;
+      }
+      setFormData(prev => ({ ...prev, [name]: formattedPhone }));
+    } else if (name === 'national_id') {
+      // Only allow digits for National ID
+      const numericValue = value.replace(/\D/g, '');
+      setFormData(prev => ({ ...prev, [name]: numericValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,7 +52,8 @@ export default function RegisterPage() {
     setError('');
     
     // Validation
-    if (!formData.name || !formData.email || !formData.phone || !formData.password) {
+    if (!formData.first_name || !formData.national_id || !formData.date_of_birth || 
+        !formData.phone || !formData.email || !formData.password) {
       setError('All fields are required');
       return;
     }
@@ -39,21 +63,42 @@ export default function RegisterPage() {
       return;
     }
     
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    // Validate National ID (basic validation for Kenya format)
+    if (formData.national_id.length < 7 || formData.national_id.length > 8 || !/^\d+$/.test(formData.national_id)) {
+      setError('National ID must be 7-8 digits only');
+      return;
+    }
+
+    // Validate age (must be 18+)
+    const birthDate = new Date(formData.date_of_birth);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    if (age < 18) {
+      setError('You must be at least 18 years old to register');
       return;
     }
     
     try {
       setIsSubmitting(true);
       await register({
-        name: formData.name,
-        email: formData.email,
+        first_name: formData.first_name,
+        national_id: formData.national_id,
+        date_of_birth: formData.date_of_birth,
+        gender: formData.gender,
         phone: formData.phone,
+        email: formData.email,
         password: formData.password,
-        user_type: formData.userType
+        user_type: formData.user_type
       });
-      navigate('/dashboard');
+      
+      // Registration successful - show verification instructions
+      setMessage('Account created successfully! Please check your email and phone for verification codes.');
+      setRegistrationStep('verification');
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -93,46 +138,150 @@ export default function RegisterPage() {
             <p className="text-gray-600">Join ShareLyft today</p>
           </div>
 
+          {message && (
+            <div className="bg-green-50 text-green-600 p-3 rounded-md mb-4">
+              {message}
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {registrationStep === 'verification' ? (
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                  <h3 className="font-semibold text-blue-900 mb-2">Verification Required</h3>
+                  <p className="text-blue-700 text-sm">
+                    We've sent verification codes to your email and phone number. Please verify both to complete your registration.
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <Button
+                    onClick={() => navigate('/verify-email')}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
+                  >
+                    Verify Email Address
+                  </Button>
+                  
+                  <Button
+                    onClick={() => navigate('/verify-phone', { state: { phone: formData.phone } })}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Verify Phone Number
+                  </Button>
+                </div>
+                
+                <p className="text-xs text-gray-500 mt-4">
+                  You need to verify both your email and phone number before you can log in.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
+              <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
+                First Name <span className="text-red-500">*</span>
               </label>
               <input
-                id="name"
-                name="name"
+                id="first_name"
+                name="first_name"
                 type="text"
-                value={formData.name}
+                value={formData.first_name}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Your full name"
+                placeholder="As it appears on National ID"
+                required
               />
+              <p className="text-xs text-gray-500 mt-1">Enter your first name as it appears on your National ID</p>
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
+              <label htmlFor="national_id" className="block text-sm font-medium text-gray-700 mb-1">
+                National ID Number <span className="text-red-500">*</span>
               </label>
               <input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
+                id="national_id"
+                name="national_id"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.national_id}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Your email"
+                placeholder="12345678"
+                maxLength={8}
+                required
               />
+              <p className="text-xs text-gray-500 mt-1">Enter your Kenyan National ID number (7-8 digits)</p>
+            </div>
+
+            <div>
+              <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-1">
+                Date of Birth <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="date_of_birth"
+                name="date_of_birth"
+                type="date"
+                value={formData.date_of_birth}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">You must be at least 18 years old</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Gender <span className="text-red-500">*</span>
+              </label>
+              <div className="flex space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="male"
+                    checked={formData.gender === 'male'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Male</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="female"
+                    checked={formData.gender === 'female'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Female</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="other"
+                    checked={formData.gender === 'other'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Other</span>
+                </label>
+              </div>
             </div>
 
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number
+                Phone Number <span className="text-red-500">*</span>
               </label>
               <input
                 id="phone"
@@ -141,29 +290,61 @@ export default function RegisterPage() {
                 value={formData.phone}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Your phone number"
+                placeholder="+254712345678"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter your phone number (will automatically add +254 prefix)</p>
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="your@email.com"
+                required
               />
             </div>
 
             <div>
-              <label htmlFor="userType" className="block text-sm font-medium text-gray-700 mb-1">
-                User Type
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                User Type <span className="text-red-500">*</span>
               </label>
-              <select
-                id="userType"
-                name="userType"
-                value={formData.userType}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="passenger">Passenger</option>
-                <option value="driver">Driver</option>
-              </select>
+              <div className="flex space-x-6">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="user_type"
+                    value="passenger"
+                    checked={formData.user_type === 'passenger'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Passenger</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="user_type"
+                    value="driver"
+                    checked={formData.user_type === 'driver'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Driver</span>
+                </label>
+              </div>
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                Password <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
@@ -172,13 +353,15 @@ export default function RegisterPage() {
                 value={formData.password}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Create a password"
+                placeholder="Minimum 6 characters"
+                minLength={6}
+                required
               />
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password
+                Confirm Password <span className="text-red-500">*</span>
               </label>
               <input
                 id="confirmPassword"
@@ -188,6 +371,8 @@ export default function RegisterPage() {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 placeholder="Confirm your password"
+                minLength={6}
+                required
               />
             </div>
 
@@ -197,9 +382,10 @@ export default function RegisterPage() {
                 name="terms"
                 type="checkbox"
                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                required
               />
               <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
-                I agree to the <a href="#" className="text-green-600 hover:text-green-500">Terms of Service</a> and <a href="#" className="text-green-600 hover:text-green-500">Privacy Policy</a>
+                I agree to the <a href="#" className="text-green-600 hover:text-green-500">Terms of Service</a> and <a href="#" className="text-green-600 hover:text-green-500">Privacy Policy</a> <span className="text-red-500">*</span>
               </label>
             </div>
 
@@ -211,6 +397,7 @@ export default function RegisterPage() {
               {isSubmitting ? 'Creating Account...' : 'Create Account'}
             </Button>
           </form>
+          )}
         </div>
       </div>
 

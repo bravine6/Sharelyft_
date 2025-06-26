@@ -178,7 +178,7 @@ export default function RideRequestsPage() {
             <p className="text-sm"><strong>Debug Info:</strong></p>
             <p className="text-sm">User Type: {user?.user_type || 'undefined'}</p>
             <p className="text-sm">User ID: {user?.id || 'undefined'}</p>
-            <p className="text-sm">Name: {user?.name || 'undefined'}</p>
+            <p className="text-sm">Name: {user?.first_name || 'undefined'}</p>
           </div>
         </div>
       </DashboardLayout>

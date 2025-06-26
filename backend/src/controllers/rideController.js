@@ -51,7 +51,7 @@ exports.createRide = async (req, res) => {
           price_per_seat,
           vehicle_info: { vehicle_id },
           route_info: { description },
-          status: 'active'
+          status: req.body.status || 'active'
         }
       ])
       .select();
@@ -719,5 +719,84 @@ exports.getRecentActivity = async (req, res) => {
   } catch (error) {
     console.error('Error fetching recent activity:', error);
     res.status(500).json({ error: 'Failed to fetch recent activity' });
+  }
+};
+
+// Get user's ride requests (for passengers)
+exports.getUserRideRequests = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    console.log('Getting ride requests for user:', userId);
+    
+    // Fetch passenger's ride requests with ride details
+    const { data, error } = await supabase
+      .from('ride_requests')
+      .select(`
+        *,
+        ride:ride_id (
+          id,
+          origin,
+          destination,
+          departure_time,
+          price_per_seat,
+          available_seats,
+          driver_id,
+          status
+        )
+      `)
+      .eq('passenger_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching ride requests:', error);
+      return res.status(400).json({ message: error.message });
+    }
+    
+    console.log('Found ride requests:', data?.length || 0);
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error in getUserRideRequests:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get specific ride request details
+exports.getRideRequestDetails = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user.id;
+    
+    console.log('Getting ride request details:', requestId, 'for user:', userId);
+    
+    // Fetch specific ride request with ride details
+    const { data, error } = await supabase
+      .from('ride_requests')
+      .select(`
+        *,
+        ride:ride_id (
+          id,
+          origin,
+          destination,
+          departure_time,
+          price_per_seat,
+          available_seats,
+          driver_id,
+          status
+        )
+      `)
+      .eq('id', requestId)
+      .eq('passenger_id', userId) // Ensure user can only access their own requests
+      .single();
+    
+    if (error || !data) {
+      return res.status(404).json({ message: 'Ride request not found' });
+    }
+    
+    console.log('Found ride request:', data.id);
+    res.json(data);
+  } catch (error) {
+    console.error('Error in getRideRequestDetails:', error);
+    res.status(500).json({ message: error.message });
   }
 };
