@@ -16,9 +16,13 @@ class EmailService {
       // Use Gmail SMTP for development (you can also use Mailtrap, Ethereal, etc.)
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
+        secure: true,
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASSWORD // App password for Gmail
+        },
+        tls: {
+          rejectUnauthorized: false
         }
       });
     }

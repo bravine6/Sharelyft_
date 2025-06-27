@@ -27,16 +27,31 @@ class SMSService {
 
   // Format phone number to international format
   formatPhoneNumber(phoneNumber) {
-    // Remove all non-digit characters
-    const cleaned = phoneNumber.replace(/\D/g, '');
+    // Remove all non-digit characters except +
+    const cleaned = phoneNumber.replace(/[^+\d]/g, '');
     
-    // Add Kenya country code if phone starts with 0
+    // If it starts with +254, use as is
+    if (cleaned.startsWith('+254')) {
+      return cleaned;
+    }
+    
+    // If it starts with 254, add +
+    if (cleaned.startsWith('254')) {
+      return '+' + cleaned;
+    }
+    
+    // If it starts with 0, replace with +254
     if (cleaned.startsWith('0')) {
       return '+254' + cleaned.substring(1);
     }
     
-    // Add + if it doesn't exist
-    if (!cleaned.startsWith('+')) {
+    // If it starts with 7 (Kenyan mobile), add +254
+    if (cleaned.match(/^[7][0-9]{8}$/)) {
+      return '+254' + cleaned;
+    }
+    
+    // Add + if it doesn't exist and is international format
+    if (cleaned.match(/^\d{10,15}$/) && !cleaned.startsWith('+')) {
       return '+' + cleaned;
     }
     
@@ -78,7 +93,7 @@ class SMSService {
           // Regular SMS fallback or for non-verification messages
           const result = await this.twilioClient.messages.create({
             body: message,
-            messagingServiceSid: this.twilioServiceSid,
+            from: process.env.TWILIO_PHONE_NUMBER || this.twilioServiceSid,
             to: formattedNumber
           });
           

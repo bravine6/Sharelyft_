@@ -130,26 +130,13 @@ exports.register = async (req, res) => {
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${emailVerificationToken}`;
     await emailService.sendEmailVerificationEmail(email, emailVerificationToken, verificationUrl);
     
-    // Send verification SMS
-    const smsResult = await smsService.sendVerificationCode(phone, phoneVerificationCode);
-    
-    // If using Twilio Verify, we don't need to store our own code
-    if (smsResult.usesTwilioVerify) {
-      // Clear the custom verification code since Twilio handles it
-      await supabase
-        .from('user_profiles')
-        .update({
-          phone_verification_code: null,
-          phone_verification_expires: null,
-          uses_twilio_verify: true
-        })
-        .eq('user_id', data.user.id);
-    }
+    // Skip SMS verification for now - allow users to verify later
+    console.log(`[DEV] Phone verification code for ${phone}: ${phoneVerificationCode}`);
     
     res.status(201).json({ 
-      message: 'User registered successfully. Please check your email and phone for verification codes.',
+      message: 'User registered successfully. Please check your email for verification. You can verify your phone number later from your profile.',
       email_sent: true,
-      sms_sent: true
+      phone_verification_code: phoneVerificationCode // For development only
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
