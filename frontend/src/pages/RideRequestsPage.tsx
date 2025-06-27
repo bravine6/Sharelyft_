@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import ServiceFeePayment from '@/components/ServiceFeePayment';
-import ContactInformation from '@/components/ContactInformation';
 import { API_URL } from '@/config';
 import { 
   MapPin, 
@@ -16,8 +15,7 @@ import {
   X, 
   Car,
   AlertCircle,
-  RefreshCw,
-  CreditCard
+  RefreshCw
 } from 'lucide-react';
 
 interface RideRequest {
@@ -40,11 +38,11 @@ interface RideRequest {
 
 export default function RideRequestsPage() {
   const { user, token } = useAuth();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<RideRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingRequest, setProcessingRequest] = useState<string | null>(null);
-  const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
 
   // Load ride requests for the driver
   const loadRideRequests = async () => {
@@ -148,6 +146,7 @@ export default function RideRequestsPage() {
       setProcessingRequest(null);
     }
   };
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -318,31 +317,27 @@ export default function RideRequestsPage() {
 
                 {request.status === 'accepted' && (
                   <div className="pt-4 border-t">
-                    <div className="flex items-center justify-between mb-3">
-                      <Badge className="bg-green-100 text-green-800">Request Accepted</Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setExpandedRequest(expandedRequest === request.id ? null : request.id)}
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                      >
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        {expandedRequest === request.id ? 'Hide' : 'Manage'} Connection
-                      </Button>
-                    </div>
-                    
-                    {expandedRequest === request.id && (
-                      <div className="space-y-4 border-t pt-4">
-                        <ServiceFeePayment 
-                          rideRequestId={request.id}
-                          onPaymentSuccess={() => {
-                            // Refresh the requests list or show success message
-                            loadRideRequests();
-                          }}
-                        />
-                        <ContactInformation rideRequestId={request.id} />
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center text-green-800 mb-2">
+                            <Badge className="bg-green-100 text-green-800 mr-2">Request Accepted</Badge>
+                          </div>
+                          <p className="text-green-700 text-sm">
+                            Request accepted! The passenger can now start a chat with you from their side to coordinate pickup details.
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => navigate('/messages')}
+                          size="sm"
+                          variant="outline"
+                          className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                        >
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          View Messages
+                        </Button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </CardContent>

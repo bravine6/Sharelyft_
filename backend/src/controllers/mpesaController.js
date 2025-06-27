@@ -5,6 +5,10 @@ const mpesaController = {
   // Initiate STK Push for service fee payment
   async initiateServiceFeePayment(req, res) {
     try {
+      console.log('=== M-PESA SERVICE FEE PAYMENT ===');
+      console.log('Request body:', req.body);
+      console.log('User:', req.user);
+      
       const { phoneNumber, rideRequestId } = req.body;
       const userId = req.user.id;
 
@@ -17,20 +21,14 @@ const mpesaController = {
       }
 
       // Check if ride request exists and user is authorized
+      console.log('Querying ride request:', rideRequestId);
       const { data: rideRequest, error: rideError } = await supabase
         .from('ride_requests')
-        .select(`
-          *,
-          ride:ride_id(
-            id,
-            driver_id,
-            origin,
-            destination,
-            departure_time
-          )
-        `)
+        .select('*')
         .eq('id', rideRequestId)
         .single();
+      
+      console.log('Ride request query result:', { rideRequest, rideError });
 
       if (rideError || !rideRequest) {
         return res.status(404).json({
@@ -39,9 +37,27 @@ const mpesaController = {
         });
       }
 
+      // Get the ride details separately
+      const { data: ride, error: rideError2 } = await supabase
+        .from('rides')
+        .select('id, driver_id, origin, destination, departure_time')
+        .eq('id', rideRequest.ride_id)
+        .single();
+      
+      console.log('Ride query result:', { ride, rideError2 });
+
+      if (rideError2 || !ride) {
+        return res.status(404).json({
+          success: false,
+          message: 'Associated ride not found'
+        });
+      }
+
       // Check if user is either the driver or passenger of this ride
-      const isDriver = rideRequest.ride.driver_id === userId;
+      const isDriver = ride.driver_id === userId;
       const isPassenger = rideRequest.passenger_id === userId;
+
+      console.log('Authorization check:', { isDriver, isPassenger, userId, driverId: ride.driver_id, passengerId: rideRequest.passenger_id });
 
       if (!isDriver && !isPassenger) {
         return res.status(403).json({
@@ -50,21 +66,8 @@ const mpesaController = {
         });
       }
 
-      // Check if user has already paid
-      const { data: existingPayment } = await supabase
-        .from('service_fee_payments')
-        .select('*')
-        .eq('ride_request_id', rideRequestId)
-        .eq('user_id', userId)
-        .eq('status', 'completed')
-        .single();
-
-      if (existingPayment) {
-        return res.status(400).json({
-          success: false,
-          message: 'Service fee already paid'
-        });
-      }
+      // Skip payment check for now - table will be created later
+      // TODO: Check if user has already paid when table is created
 
       // Generate unique transaction reference
       const transactionRef = `SL${Date.now()}${userId.slice(-4)}`;
@@ -76,13 +79,16 @@ const mpesaController = {
       const callbackUrl = `${process.env.BACKEND_URL || 'https://sharelyft-backend.vercel.app'}/api/mpesa/callback`;
       
       // Initiate STK Push
+      console.log('Initiating STK Push with:', { phoneNumber, amount, transactionRef });
       const stkResponse = await mpesaService.initiateSTKPush(
         phoneNumber,
         amount,
         transactionRef,
-        `ShareLyft Service Fee - ${rideRequest.ride.origin} to ${rideRequest.ride.destination}`,
+        `ShareLyft Service Fee - ${ride.origin} to ${ride.destination}`,
         callbackUrl
       );
+      
+      console.log('STK Push response:', stkResponse);
 
       if (stkResponse.ResponseCode !== '0') {
         return res.status(400).json({
@@ -91,32 +97,19 @@ const mpesaController = {
         });
       }
 
-      // Store payment record
-      const { data: payment, error: paymentError } = await supabase
-        .from('service_fee_payments')
-        .insert({
-          id: `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          ride_request_id: rideRequestId,
-          user_id: userId,
-          amount: amount,
-          payment_method_type: 'mpesa',
-          mpesa_phone: phoneNumber,
-          transaction_reference: transactionRef,
-          checkout_request_id: stkResponse.CheckoutRequestID,
-          merchant_request_id: stkResponse.MerchantRequestID,
-          status: 'pending',
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (paymentError) {
-        console.error('Payment record creation error:', paymentError);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to create payment record'
-        });
-      }
+      // Store payment record - simplified for testing
+      // TODO: Store in service_fee_payments table when created
+      console.log('Payment initiated:', {
+        transactionRef,
+        rideRequestId,
+        user_id: userId,
+        amount: amount,
+        payment_method_type: 'mpesa',
+        mpesa_phone: phoneNumber,
+        checkout_request_id: stkResponse.CheckoutRequestID,
+        merchant_request_id: stkResponse.MerchantRequestID,
+        status: 'pending'
+      });
 
       res.json({
         success: true,

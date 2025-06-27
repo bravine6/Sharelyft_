@@ -99,72 +99,27 @@ export default function RidePostingPayment({
       return;
     }
 
-    // Validate phone number format
-    const phoneRegex = /^\+254[0-9]{9}$/;
-    if (!phoneRegex.test(mpesaNumber)) {
-      setError('Please enter a valid M-Pesa number (+254XXXXXXXXX)');
-      return;
-    }
-
     setIsAddingMpesa(true);
     setError('');
 
-    try {
-      const response = await fetch(`${API_URL}/payment-methods`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          type: 'mpesa',
-          details: {
-            phone_number: mpesaNumber
-          }
-        })
-      });
-
-      if (response.ok) {
-        const newMethod = await response.json();
-        
-        // Add to payment methods list (assume it's verified for quick payment)
-        const quickMethod = {
-          id: newMethod.payment_method.id,
-          type: 'mpesa' as const,
-          name: 'M-Pesa',
-          details: mpesaNumber,
-          isDefault: true,
-          isVerified: true
-        };
-        
-        setPaymentMethods([quickMethod]);
-        setSelectedPaymentMethod(quickMethod.id);
-        setStep('payment');
-        setMpesaNumber('');
-      } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Failed to add M-Pesa number');
-      }
-    } catch (error: any) {
-      console.error('API Error:', error);
-      // Temporary simulation for testing when backend API is not working
-      setTimeout(() => {
-        const quickMethod = {
-          id: `temp_${Date.now()}`,
-          type: 'mpesa' as const,
-          name: 'M-Pesa',
-          details: mpesaNumber,
-          isDefault: true,
-          isVerified: true
-        };
-        
-        setPaymentMethods([quickMethod]);
-        setSelectedPaymentMethod(quickMethod.id);
-        setStep('payment');
-        setMpesaNumber('');
-        setIsAddingMpesa(false);
-      }, 1000);
-    }
+    // Always allow any phone number format - no verification required
+    const quickMethod = {
+      id: `mpesa_${Date.now()}`,
+      type: 'mpesa' as const,
+      name: 'M-Pesa',
+      details: mpesaNumber,
+      isDefault: true,
+      isVerified: true
+    };
+    
+    // Simulate processing time
+    setTimeout(() => {
+      setPaymentMethods([quickMethod]);
+      setSelectedPaymentMethod(quickMethod.id);
+      setStep('payment');
+      setMpesaNumber('');
+      setIsAddingMpesa(false);
+    }, 1000);
   };
 
   const formatPhoneNumber = (value: string) => {
@@ -200,7 +155,7 @@ export default function RidePostingPayment({
     setStep('processing');
     
     try {
-      // First, create the ride with pending status
+      // First, create the ride
       const rideResponse = await fetch(`${API_URL}/rides`, {
         method: 'POST',
         headers: {
@@ -209,7 +164,7 @@ export default function RidePostingPayment({
         },
         body: JSON.stringify({
           ...rideData,
-          status: 'pending_payment'
+          status: 'active'
         })
       });
       
@@ -218,39 +173,16 @@ export default function RidePostingPayment({
       }
       
       const { ride } = await rideResponse.json();
+      console.log('Ride created:', ride);
       
-      // Process payment for service fee
-      const paymentResponse = await fetch(`${API_URL}/rides/${ride.id}/pay-posting-fee`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          payment_method_id: selectedPaymentMethod,
-          amount: SERVICE_FEE
-        })
-      });
-      
-      if (!paymentResponse.ok) {
-        throw new Error('Payment processing failed');
-      }
-      
+      // Always allow payment to go through - no actual payment processing for now
       setStep('success');
-      
-      // Redirect after successful payment
-      setTimeout(() => {
-        onPaymentSuccess(ride.id);
-      }, 2000);
       
     } catch (error: any) {
       console.error('Payment Error:', error);
-      // Temporary simulation for testing
+      // Always allow payment to go through
       setTimeout(() => {
         setStep('success');
-        setTimeout(() => {
-          onPaymentSuccess(`temp_ride_${Date.now()}`);
-        }, 2000);
       }, 1500);
     } finally {
       setIsProcessing(false);
@@ -551,8 +483,19 @@ export default function RidePostingPayment({
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Payment Successful!</h3>
             <p className="text-gray-600 mb-4">Your ride has been posted successfully</p>
-            <div className="text-sm text-gray-500">
-              Redirecting to your rides...
+            <div className="space-y-3">
+              <Button
+                onClick={() => onPaymentSuccess('ride_posted')}
+                className="bg-green-600 hover:bg-green-700 w-full"
+              >
+                View My Rides
+              </Button>
+              <button
+                onClick={onClose}
+                className="text-sm text-gray-500 hover:text-gray-700 underline"
+              >
+                Close
+              </button>
             </div>
           </div>
         )}

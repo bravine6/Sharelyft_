@@ -18,7 +18,9 @@ import OfferRidePage from './pages/OfferRidePage'
 import MyRidesPage from './pages/MyRidesPage'
 import RideRequestsPage from './pages/RideRequestsPage'
 import MyRideRequestsPage from './pages/MyRideRequestsPage'
+import VehiclesPage from './pages/VehiclesPage'
 import NotFoundPage from './pages/NotFoundPage'
+import { ChatPage } from './pages/ChatPage'
 
 function App() {
   return (
@@ -41,8 +43,9 @@ function App() {
           <Route path="/my-rides" element={<MyRidesPage />} />
           <Route path="/ride-requests" element={<RideRequestsPage />} />
           <Route path="/my-ride-requests" element={<MyRideRequestsPage />} />
+          <Route path="/vehicles" element={<VehiclesPage />} />
           <Route path="/rides/:id" element={<div>Ride Details Page</div>} />
-          <Route path="/messages" element={<div>Messages Page</div>} />
+          <Route path="/messages" element={<ChatPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/verification" element={<VerificationPage />} />

@@ -343,6 +343,20 @@ exports.requestRide = async (req, res) => {
       return res.status(400).json({ message: 'You cannot request your own ride' });
     }
     
+    // Check if user has already requested this ride
+    const { data: existingRequest, error: existingError } = await supabase
+      .from('ride_requests')
+      .select('id, status')
+      .eq('ride_id', id)
+      .eq('passenger_id', req.user.id)
+      .single();
+
+    if (existingRequest) {
+      return res.status(400).json({ 
+        message: `You have already requested this ride (Status: ${existingRequest.status})` 
+      });
+    }
+    
     // Create ride request - use profile ID which matches the foreign key constraint
     const requestData = { 
       ride_id: id,
@@ -401,16 +415,54 @@ exports.respondToRequest = async (req, res) => {
       });
     }
     
-    // Update request status
+    // Update request status with responded_at timestamp
+    const updateData = { status };
+    
+    // Add responded_at timestamp if status is being set to accepted or rejected
+    if (status === 'accepted' || status === 'rejected') {
+      updateData.responded_at = new Date().toISOString();
+    }
+    
     const { data, error } = await supabase
       .from('ride_requests')
-      .update({ status })
+      .update(updateData)
       .eq('id', requestId)
       .eq('ride_id', id)
       .select();
     
     if (error) {
       return res.status(400).json({ message: error.message });
+    }
+
+    // If request was accepted, automatically create a chat conversation
+    if (status === 'accepted') {
+      try {
+        // Check if conversation already exists
+        const { data: existingConv } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('ride_id', id)
+          .eq('passenger_id', data[0].passenger_id)
+          .single();
+
+        if (!existingConv) {
+          // Create new conversation with driver already marked as paid
+          await supabase
+            .from('conversations')
+            .insert([{
+              ride_id: id,
+              driver_id: req.user.id,
+              passenger_id: data[0].passenger_id,
+              driver_paid: true,  // Driver already paid for ride posting
+              passenger_paid: false  // Passenger needs to pay for contact sharing
+            }]);
+          
+          console.log(`Created chat conversation for accepted ride request ${requestId}`);
+        }
+      } catch (convError) {
+        console.error('Error creating conversation:', convError);
+        // Don't fail the request acceptance if conversation creation fails
+      }
     }
     
     res.json(data[0]);

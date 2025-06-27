@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import ServiceFeePayment from '@/components/ServiceFeePayment';
-import ContactInformation from '@/components/ContactInformation';
+import { useChat } from '@/hooks/useChat';
 import { API_URL } from '@/config';
 import { 
   MapPin, 
@@ -15,7 +15,6 @@ import {
   Car,
   AlertCircle,
   RefreshCw,
-  CreditCard,
   CheckCircle,
   XCircle,
   Loader2
@@ -48,10 +47,11 @@ interface RideRequest {
 
 export default function MyRideRequestsPage() {
   const { user, token } = useAuth();
+  const navigate = useNavigate();
+  const { createConversation } = useChat();
   const [requests, setRequests] = useState<RideRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.user_type === 'passenger' && token) {
@@ -87,6 +87,17 @@ export default function MyRideRequestsPage() {
       setError('Network error while loading ride requests');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Handle starting a chat conversation for accepted requests
+  const handleStartChat = async (request: RideRequest) => {
+    try {
+      await createConversation(request.ride.id);
+      navigate('/messages');
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+      setError('Failed to start chat. Please try again.');
     }
   };
 
@@ -284,46 +295,30 @@ export default function MyRideRequestsPage() {
                   </div>
                 )}
 
-                {/* Accepted Status - Payment Required */}
+                {/* Accepted Status - Chat Available */}
                 {request.status === 'accepted' && (
                   <div className="pt-4 border-t">
-                    <div className="flex items-center justify-between mb-3">
-                      <Badge className="bg-green-100 text-green-800">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Request Accepted!
-                      </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setExpandedRequest(expandedRequest === request.id ? null : request.id)}
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                      >
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        {expandedRequest === request.id ? 'Hide' : 'Pay Service Fee'}
-                      </Button>
-                    </div>
-                    
-                    {expandedRequest === request.id && (
-                      <div className="space-y-4 border-t pt-4">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                          <div className="flex items-center text-green-800">
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            <span className="font-medium">Great News!</span>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center text-green-800 mb-2">
+                            <CheckCircle className="w-5 h-5 mr-2" />
+                            <span className="font-medium">Request Accepted!</span>
                           </div>
-                          <p className="text-green-700 text-sm mt-1">
-                            Your ride request has been accepted! Pay the KSh 50 service fee to unlock chat and contact features.
+                          <p className="text-green-700 text-sm">
+                            Great news! Your ride request has been accepted. Start chatting with your driver to coordinate pickup details.
                           </p>
                         </div>
-                        
-                        <ServiceFeePayment 
-                          rideRequestId={request.id}
-                          onPaymentSuccess={() => {
-                            loadRideRequests();
-                          }}
-                        />
-                        <ContactInformation rideRequestId={request.id} />
+                        <Button
+                          onClick={() => handleStartChat(request)}
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700 text-white ml-4"
+                        >
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          Start Chat
+                        </Button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </CardContent>

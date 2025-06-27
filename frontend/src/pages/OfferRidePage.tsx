@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import RidePostingPayment from '@/components/RidePostingPayment';
 import { useCounties, useTownsByCounty } from '@/hooks/useLocations';
+import { useVehicleOptions } from '@/hooks/useVehicles';
 import { 
   Calendar, 
   Clock, 
@@ -44,6 +45,9 @@ export default function OfferRidePage() {
   const { towns: destinationTowns, loading: destinationTownsLoading } = useTownsByCounty(
     formData.destination_county ? parseInt(formData.destination_county) : null
   );
+  
+  // Fetch vehicles for the current driver
+  const { vehicles, loading: vehiclesLoading, error: vehiclesError } = useVehicleOptions();
   
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -405,14 +409,32 @@ export default function OfferRidePage() {
                       onChange={handleChange}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       required
+                      disabled={vehiclesLoading}
                     >
-                      <option value="">Select Vehicle</option>
-                      <option value="1">Toyota Corolla (KBZ 123A)</option>
-                      <option value="2">Nissan Sentra (KCA 456B)</option>
-                      <option value="3">Honda Civic (KDB 789C)</option>
-                      <option value="4">Subaru Forester (KDC 012D)</option>
+                      <option value="">
+                        {vehiclesLoading ? 'Loading vehicles...' : 
+                         vehiclesError ? 'Error loading vehicles' :
+                         vehicles.length === 0 ? 'No verified vehicles found' :
+                         'Select Vehicle'}
+                      </option>
+                      {vehicles.map((vehicle) => (
+                        <option key={vehicle.id} value={vehicle.id}>
+                          {vehicle.label} - {vehicle.details}
+                        </option>
+                      ))}
                     </select>
                   </div>
+                  {!vehiclesLoading && vehicles.length === 0 && (
+                    <p className="text-sm text-amber-600 mt-1">
+                      <span className="flex items-center">
+                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        You need at least one verified vehicle to offer rides. 
+                        <Link to="/vehicles" className="ml-1 underline text-amber-700 hover:text-amber-800">
+                          Add a vehicle
+                        </Link>
+                      </span>
+                    </p>
+                  )}
                 </div>
                 
                 <div>

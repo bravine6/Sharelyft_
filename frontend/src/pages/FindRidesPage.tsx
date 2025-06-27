@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { API_URL } from '@/config';
 import { useCounties, useTownsByCounty } from '@/hooks/useLocations';
-import { MapPin, Clock, Users, Car, Search, Filter, Calendar, DollarSign } from 'lucide-react';
+import { MapPin, Clock, Users, Car, Search, Filter, Calendar, DollarSign, MessageCircle } from 'lucide-react';
 import RideRequestModal from '@/components/RideRequestModal';
+import { useChat } from '@/hooks/useChat';
 
 interface Ride {
   id: string;
@@ -22,6 +23,8 @@ interface Ride {
 
 export default function FindRidesPage() {
   const { token } = useAuth();
+  const navigate = useNavigate();
+  const { createConversation } = useChat();
   
   const [searchParams, setSearchParams] = useState({
     origin: '',
@@ -162,6 +165,15 @@ export default function FindRidesPage() {
   const handleRequestRide = (ride: Ride) => {
     setSelectedRide(ride);
     setShowRequestModal(true);
+  };
+
+  const handleChatWithDriver = async (ride: Ride) => {
+    try {
+      await createConversation(ride.id);
+      navigate('/messages');
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+    }
   };
 
   const handleRequestSuccess = () => {
@@ -442,6 +454,15 @@ export default function FindRidesPage() {
                             onClick={() => handleRequestRide(ride)}
                           >
                             Request Ride
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                            onClick={() => handleChatWithDriver(ride)}
+                          >
+                            <MessageCircle className="w-4 h-4 mr-1" />
+                            Chat
                           </Button>
                         </div>
                       </div>

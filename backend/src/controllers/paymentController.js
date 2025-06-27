@@ -1,7 +1,7 @@
 const stripeService = require('../services/stripeService');
 const pesalinkService = require('../services/pesalinkService');
 const mpesaService = require('../services/mpesaService');
-const { supabase } = require('../config/supabase');
+const supabase = require('../config/supabase');
 
 const paymentController = {
   // Get available payment methods
