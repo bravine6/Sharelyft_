@@ -2,36 +2,56 @@ const nodemailer = require('nodemailer');
 
 class EmailService {
   constructor() {
+    this.emailEnabled = false;
+    this.fromEmail = process.env.FROM_EMAIL || 'noreply@sharelyft.com';
+    
     // Configure email transporter based on environment
     if (process.env.NODE_ENV === 'production') {
       // Use SendGrid in production
-      this.transporter = nodemailer.createTransport({
-        service: 'SendGrid',
-        auth: {
-          user: 'apikey',
-          pass: process.env.SENDGRID_API_KEY
-        }
-      });
+      if (process.env.SENDGRID_API_KEY) {
+        this.transporter = nodemailer.createTransport({
+          service: 'SendGrid',
+          auth: {
+            user: 'apikey',
+            pass: process.env.SENDGRID_API_KEY
+          }
+        });
+        this.emailEnabled = true;
+        console.log('Email service initialized with SendGrid');
+      } else {
+        console.log('SendGrid API key not found - emails will be simulated');
+      }
     } else {
-      // Use Gmail SMTP for development (you can also use Mailtrap, Ethereal, etc.)
-      this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        secure: true,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD // App password for Gmail
-        },
-        tls: {
-          rejectUnauthorized: false
-        }
-      });
+      // Use Gmail SMTP for development
+      if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
+        this.transporter = nodemailer.createTransport({
+          service: 'gmail',
+          secure: true,
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD // App password for Gmail
+          },
+          tls: {
+            rejectUnauthorized: false
+          }
+        });
+        this.emailEnabled = true;
+        console.log('Email service initialized with Gmail');
+      } else {
+        console.log('Gmail credentials not found - emails will be simulated');
+      }
     }
-
-    this.fromEmail = process.env.FROM_EMAIL || 'noreply@sharelyft.com';
   }
 
   async sendEmail({ to, subject, html, text }) {
     try {
+      if (!this.emailEnabled) {
+        console.log(`[EMAIL DEV] To: ${to}`);
+        console.log(`[EMAIL DEV] Subject: ${subject}`);
+        console.log(`[EMAIL DEV] Body: ${text || html.replace(/<[^>]*>/g, '')}`);
+        return { success: true, messageId: 'dev-email-' + Date.now() };
+      }
+
       const mailOptions = {
         from: this.fromEmail,
         to,
@@ -45,6 +65,13 @@ class EmailService {
       return result;
     } catch (error) {
       console.error('Error sending email:', error);
+      
+      // In development/deployment without credentials, don't throw error
+      if (!this.emailEnabled) {
+        console.log('[EMAIL DEV] Simulating email send success despite error');
+        return { success: true, messageId: 'dev-error-email-' + Date.now(), error: error.message };
+      }
+      
       throw error;
     }
   }
