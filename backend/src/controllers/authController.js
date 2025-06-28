@@ -78,11 +78,11 @@ exports.register = async (req, res) => {
       }
     }
     
-    // Register with Supabase Auth (don't auto-confirm email)
+    // Register with Supabase Auth (confirm for auth but use our own verification)
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: false // Require email verification
+      email_confirm: true // Allow login, but we control verification with our own flag
     });
     
     if (error) {
@@ -532,8 +532,14 @@ exports.login = async (req, res) => {
       return res.status(404).json({ message: 'User profile not found' });
     }
     
-    // Allow login but include verification status
-    // Users can access dashboard but with limited functionality until verified
+    // Block login if email is not verified
+    if (!profile.email_verified) {
+      return res.status(403).json({ 
+        message: 'Please verify your email before logging in',
+        error: 'EMAIL_NOT_VERIFIED',
+        email: profile.email
+      });
+    }
     
     // Create JWT token
     const token = jwt.sign(
@@ -542,7 +548,7 @@ exports.login = async (req, res) => {
       { expiresIn: '7d' }
     );
     
-    // Return user data with profile information
+    // Return user data with profile information and verification requirements
     const userData = {
       id: data.user.id,
       email: data.user.email,
@@ -553,10 +559,15 @@ exports.login = async (req, res) => {
       phone: profile.phone,
       user_type: profile.user_type,
       email_verified: profile.email_verified,
-      phone_verified: profile.phone_verified
+      phone_verified: profile.phone_verified,
+      requires_phone_verification: !profile.phone_verified
     };
     
-    res.json({ user: userData, token });
+    res.json({ 
+      user: userData, 
+      token,
+      message: !profile.phone_verified ? 'Please verify your phone number to access all features' : 'Login successful'
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -590,6 +601,38 @@ exports.getProfile = async (req, res) => {
       user_type: data.user_type,
       email_verified: data.email_verified,
       phone_verified: data.phone_verified
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get user verification status
+exports.getVerificationStatus = async (req, res) => {
+  try {
+    const { user } = req;
+    
+    // Get verification status from Supabase
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('email_verified, phone_verified, email, phone')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (error) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+    
+    res.json({
+      email_verified: data.email_verified,
+      phone_verified: data.phone_verified,
+      fully_verified: data.email_verified && data.phone_verified,
+      email: data.email,
+      phone: data.phone,
+      required_verifications: {
+        email: !data.email_verified,
+        phone: !data.phone_verified
+      }
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

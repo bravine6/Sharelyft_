@@ -19,7 +19,6 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [registrationStep, setRegistrationStep] = useState('form'); // 'form' | 'verification'
   
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -96,9 +95,9 @@ export default function RegisterPage() {
         user_type: formData.user_type
       });
       
-      // Registration successful - show verification instructions
-      setMessage('Account created successfully! Please check your email and phone for verification codes.');
-      setRegistrationStep('verification');
+      // Registration successful - redirect to login
+      setMessage('Account created successfully! Please check your email to verify your account before logging in.');
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -150,40 +149,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {registrationStep === 'verification' ? (
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                  <h3 className="font-semibold text-blue-900 mb-2">Verification Required</h3>
-                  <p className="text-blue-700 text-sm">
-                    We've sent verification codes to your email and phone number. Please verify both to complete your registration.
-                  </p>
-                </div>
-                
-                <div className="space-y-3">
-                  <Button
-                    onClick={() => navigate('/verify-email')}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
-                  >
-                    Verify Email Address
-                  </Button>
-                  
-                  <Button
-                    onClick={() => navigate('/verify-phone', { state: { phone: formData.phone } })}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Verify Phone Number
-                  </Button>
-                </div>
-                
-                <p className="text-xs text-gray-500 mt-4">
-                  You need to verify both your email and phone number before you can log in.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
                 First Name <span className="text-red-500">*</span>
@@ -397,7 +363,6 @@ export default function RegisterPage() {
               {isSubmitting ? 'Creating Account...' : 'Create Account'}
             </Button>
           </form>
-          )}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ridePaymentController = require('../controllers/ridePaymentController');
-const authMiddleware = require('../middleware/authMiddleware');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 // Ride payment routes
 router.post('/:id/pay-posting-fee', authMiddleware, ridePaymentController.payRidePostingFee);

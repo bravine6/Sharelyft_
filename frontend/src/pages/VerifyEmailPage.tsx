@@ -1,68 +1,55 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Car, Mail, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Car, CheckCircle, XCircle, Loader } from 'lucide-react';
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
-  const [isResending, setIsResending] = useState(false);
-  
-  const { verifyEmail, resendEmailVerification } = useAuth();
   const navigate = useNavigate();
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [message, setMessage] = useState('');
+  
   const token = searchParams.get('token');
 
   useEffect(() => {
-    if (token) {
-      handleVerification();
-    } else {
-      setError('Invalid verification link. Please check your email for the correct link.');
-    }
-  }, [token]);
+    const verifyEmail = async () => {
+      if (!token) {
+        setStatus('error');
+        setMessage('Invalid verification link. Please check your email for the correct link.');
+        return;
+      }
 
-  const handleVerification = async () => {
-    if (!token) return;
-    
-    try {
-      setIsVerifying(true);
-      setError('');
-      await verifyEmail(token);
-      setMessage('Email verified successfully! You can now log in to your account.');
-      setIsVerified(true);
-      
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
-    } catch (err: any) {
-      setError(err.message || 'Email verification failed');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/verify-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ token }),
+        });
 
-  const handleResendVerification = async () => {
-    const email = prompt('Please enter your email address to resend verification:');
-    if (!email) return;
-    
-    try {
-      setIsResending(true);
-      setError('');
-      await resendEmailVerification(email);
-      setMessage('Verification email sent! Please check your inbox.');
-    } catch (err: any) {
-      setError(err.message || 'Failed to resend verification email');
-    } finally {
-      setIsResending(false);
-    }
-  };
+        const data = await response.json();
+
+        if (response.ok) {
+          setStatus('success');
+          setMessage('Email verified successfully! You can now sign in to your account.');
+          // Auto redirect to login after 3 seconds
+          setTimeout(() => navigate('/login'), 3000);
+        } else {
+          setStatus('error');
+          setMessage(data.message || 'Email verification failed. The link may have expired.');
+        }
+      } catch (error) {
+        setStatus('error');
+        setMessage('Failed to verify email. Please try again later.');
+      }
+    };
+
+    verifyEmail();
+  }, [token, navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-green-50 to-blue-50">
       {/* Header */}
       <header className="border-b bg-white/95 backdrop-blur sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -72,95 +59,57 @@ export default function VerifyEmailPage() {
             </div>
             <span className="text-xl font-bold text-gray-900">ShareLyft</span>
           </Link>
-          <div className="flex items-center space-x-3">
-            <Link to="/login" className="text-gray-600 hover:text-gray-900">
-              Back to Login
-            </Link>
-          </div>
         </div>
       </header>
 
-      {/* Verification Status */}
+      {/* Verification Content */}
       <div className="flex-1 flex justify-center items-center p-4">
-        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-          <div className="text-center mb-6">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              isVerified ? 'bg-green-100' : error ? 'bg-red-100' : 'bg-blue-100'
-            }`}>
-              {isVerifying ? (
-                <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
-              ) : isVerified ? (
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              ) : error ? (
-                <XCircle className="w-8 h-8 text-red-600" />
-              ) : (
-                <Mail className="w-8 h-8 text-blue-600" />
-              )}
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isVerifying ? 'Verifying Email...' : 
-               isVerified ? 'Email Verified!' : 
-               error ? 'Verification Failed' : 'Email Verification'}
-            </h1>
-            <p className="text-gray-600">
-              {isVerifying ? 'Please wait while we verify your email address' :
-               isVerified ? 'Your email has been verified successfully. Redirecting to login...' :
-               error ? 'There was a problem verifying your email address' :
-               'Verifying your email address...'}
-            </p>
-          </div>
-
-          {message && (
-            <div className="bg-green-50 text-green-600 p-3 rounded-md mb-4">
-              {message}
+        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+          {status === 'loading' && (
+            <div className="space-y-4">
+              <Loader className="w-12 h-12 text-green-600 animate-spin mx-auto" />
+              <h1 className="text-2xl font-bold text-gray-900">Verifying Email</h1>
+              <p className="text-gray-600">Please wait while we verify your email address...</p>
             </div>
           )}
 
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {error && (
-              <>
+          {status === 'success' && (
+            <div className="space-y-4">
+              <CheckCircle className="w-16 h-16 text-green-600 mx-auto" />
+              <h1 className="text-2xl font-bold text-gray-900">Email Verified!</h1>
+              <p className="text-gray-600">{message}</p>
+              <div className="space-y-3">
                 <Button
-                  onClick={handleResendVerification}
-                  disabled={isResending}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
+                  onClick={() => navigate('/login')}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
                 >
-                  {isResending ? 'Sending...' : 'Resend Verification Email'}
+                  Continue to Sign In
                 </Button>
-                
-                <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-2">
-                    Need help? Contact support or try these steps:
-                  </p>
-                  <ul className="text-xs text-gray-500 space-y-1">
-                    <li>• Check your spam/junk folder</li>
-                    <li>• Make sure you clicked the most recent email</li>
-                    <li>• Try requesting a new verification email</li>
-                  </ul>
-                </div>
-              </>
-            )}
-
-            {isVerified && (
-              <Button
-                onClick={() => navigate('/login')}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
-              >
-                Continue to Login
-              </Button>
-            )}
-
-            <div className="text-center">
-              <Link to="/login" className="text-blue-600 hover:text-blue-500 text-sm">
-                Back to Login
-              </Link>
+                <p className="text-sm text-gray-500">
+                  Redirecting automatically in 3 seconds...
+                </p>
+              </div>
             </div>
-          </div>
+          )}
+
+          {status === 'error' && (
+            <div className="space-y-4">
+              <XCircle className="w-16 h-16 text-red-500 mx-auto" />
+              <h1 className="text-2xl font-bold text-gray-900">Verification Failed</h1>
+              <p className="text-gray-600">{message}</p>
+              <div className="space-y-3">
+                <Button
+                  onClick={() => navigate('/login')}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
+                >
+                  Go to Sign In
+                </Button>
+                <p className="text-sm text-gray-500">
+                  You can request a new verification email when you try to sign in.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

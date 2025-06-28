@@ -7,11 +7,9 @@ import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
-import VerifyPhonePage from './pages/VerifyPhonePage'
 import DashboardPage from './pages/DashboardPage'
 import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
-import VerificationPage from './pages/VerificationPage'
 import PaymentMethodsPage from './pages/PaymentMethodsPage'
 import FindRidesPage from './pages/FindRidesPage'
 import OfferRidePage from './pages/OfferRidePage'
@@ -33,7 +31,6 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
-        <Route path="/verify-phone" element={<VerifyPhonePage />} />
         
         {/* Protected routes */}
         <Route element={<ProtectedRoute />}>
@@ -48,7 +45,6 @@ function App() {
           <Route path="/messages" element={<ChatPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/verification" element={<VerificationPage />} />
           <Route path="/payment-methods" element={<PaymentMethodsPage />} />
         </Route>
 

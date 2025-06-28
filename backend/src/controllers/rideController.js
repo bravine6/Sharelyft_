@@ -22,10 +22,7 @@ exports.createRide = async (req, res) => {
       return res.status(403).json({ message: 'Only drivers can offer rides' });
     }
     
-    // TODO: Add verification status check when implemented
-    // if (req.user.verification_status !== 'approved') {
-    //   return res.status(403).json({ message: 'Driver verification required to offer rides' });
-    // }
+    // Verification is now enforced by requireFullVerification middleware
     
     // Validate input
     if (!origin || !destination || !departure_time || !available_seats || !price_per_seat) {

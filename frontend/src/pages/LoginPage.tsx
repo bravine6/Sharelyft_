@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Car } from 'lucide-react';
+import { Car, Mail } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [showResendOption, setShowResendOption] = useState(false);
   
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setShowResendOption(false);
     
     if (!email || !password) {
       setError('All fields are required');
@@ -27,9 +30,46 @@ export default function LoginPage() {
       await login(email, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Failed to log in');
+      const errorMessage = err.message || 'Failed to log in';
+      setError(errorMessage);
+      
+      // Automatically resend verification email if not verified
+      if (errorMessage.includes('verify your email') || 
+          errorMessage.includes('Email not confirmed') ||
+          err.error === 'EMAIL_NOT_VERIFIED') {
+        setShowResendOption(true);
+        await handleResendVerification();
+      }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      return;
+    }
+
+    try {
+      setIsResending(true);
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/resend-email-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Failed to resend verification email:', data.message);
+      }
+    } catch (err) {
+      console.error('Failed to resend verification email:', err);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -66,8 +106,22 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">
-              {error}
+            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-4">
+              <div className="flex items-start space-x-3">
+                <Mail className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium">
+                    {showResendOption ? 'Email Not Confirmed' : 'Login Error'}
+                  </p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {showResendOption 
+                      ? 'Email not confirmed. A new verification link has been sent to your email address. Please check your inbox and spam folder.'
+                      : error
+                    }
+                  </p>
+                </div>
+              </div>
+              
             </div>
           )}
 

@@ -8,7 +8,6 @@ import { MapPin, Clock, Users, Car, Search, PlusCircle, TrendingUp, DollarSign, 
 import { Link } from 'react-router-dom';
 import { useRideStatistics, useRecentActivity } from '@/hooks/useRideStatistics';
 import { usePendingRideRequests } from '@/hooks/useRideRequests';
-import { VerificationBanner } from '@/components/VerificationBanner';
 
 interface Ride {
   id: string;
@@ -126,9 +125,6 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600">Welcome back, {user?.first_name}!</p>
       </div>
-
-      {/* Verification Banner */}
-      <VerificationBanner />
 
       {/* Pending Ride Requests Alert for Drivers */}
       {user?.user_type === 'driver' && !requestsLoading && pendingRequests.length > 0 && (

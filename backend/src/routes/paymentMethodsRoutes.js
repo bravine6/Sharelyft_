@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const paymentMethodsController = require('../controllers/paymentMethodsController');
-const authMiddleware = require('../middleware/authMiddleware');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 // Payment methods routes
 router.get('/', authMiddleware, paymentMethodsController.getPaymentMethods);

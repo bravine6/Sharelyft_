@@ -16,5 +16,6 @@ router.post('/resend-phone-verification', authController.resendPhoneVerification
 // Protected routes (authentication required)
 router.get('/profile', auth, authController.getProfile);
 router.put('/profile', auth, authController.updateProfile);
+router.get('/verification-status', auth, authController.getVerificationStatus);
 
 module.exports = router;

@@ -46,7 +46,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     ...(user?.user_type === 'driver' ? [{ name: 'My Vehicles', path: '/vehicles', icon: <Car size={20} /> }] : []),
     { name: 'Messages', path: '/messages', icon: <MessageSquare size={20} /> },
     { name: 'Profile', path: '/profile', icon: <User size={20} /> },
-    { name: 'Verification', path: '/verification', icon: <Shield size={20} /> },
     { name: 'Payment Methods', path: '/payment-methods', icon: <CreditCard size={20} /> },
     { name: 'Settings', path: '/settings', icon: <Settings size={20} /> },
   ];
