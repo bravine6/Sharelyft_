@@ -849,3 +849,349 @@ exports.getRideRequestDetails = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Cancel a ride request (passenger cancels)
+exports.cancelRideRequest = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { reason = 'Cancelled by passenger' } = req.body;
+    const userId = req.user.id;
+
+    // Get ride request details
+    const { data: rideRequest, error: requestError } = await supabase
+      .from('ride_requests')
+      .select(`
+        *,
+        rides!inner(driver_id, departure_time, origin, destination)
+      `)
+      .eq('id', requestId)
+      .single();
+
+    if (requestError || !rideRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ride request not found'
+      });
+    }
+
+    // Check if user is passenger or driver
+    const isPassenger = rideRequest.passenger_id === userId;
+    const isDriver = rideRequest.rides.driver_id === userId;
+
+    if (!isPassenger && !isDriver) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to cancel this ride request'
+      });
+    }
+
+    // Check if already cancelled
+    if (rideRequest.status === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Ride request is already cancelled'
+      });
+    }
+
+    // Check cancellation policy (24 hours before departure)
+    const departureTime = new Date(rideRequest.rides.departure_time);
+    const now = new Date();
+    const hoursUntilDeparture = (departureTime - now) / (1000 * 60 * 60);
+    const isLateCancellation = hoursUntilDeparture < 24;
+
+    // Update ride request status
+    const { data: updatedRequest, error: updateError } = await supabase
+      .from('ride_requests')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancelled_by: userId,
+        cancellation_reason: reason,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', requestId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Process refunds if payments exist
+    const refundResult = await processRideRequestRefund(requestId, isLateCancellation);
+
+    res.json({
+      success: true,
+      message: 'Ride request cancelled successfully',
+      data: {
+        request: updatedRequest,
+        refund: refundResult,
+        late_cancellation: isLateCancellation,
+        cancellation_fee: isLateCancellation ? 25 : 0 // KES 25 fee for late cancellation
+      }
+    });
+
+  } catch (error) {
+    console.error('Error cancelling ride request:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to cancel ride request'
+    });
+  }
+};
+
+// Cancel entire ride (driver cancels)
+exports.cancelRide = async (req, res) => {
+  try {
+    const rideId = req.params.id || req.params.rideId;
+    const { reason = 'Cancelled by driver' } = req.body;
+    const userId = req.user.id;
+
+    // Get ride details with all requests
+    const { data: ride, error: rideError } = await supabase
+      .from('rides')
+      .select(`
+        *,
+        ride_requests!inner(*)
+      `)
+      .eq('id', rideId)
+      .eq('driver_id', userId)
+      .single();
+
+    if (rideError || !ride) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ride not found or not authorized'
+      });
+    }
+
+    // Check if already cancelled
+    if (ride.status === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Ride is already cancelled'
+      });
+    }
+
+    // Check for accepted requests
+    const acceptedRequests = ride.ride_requests.filter(req => req.status === 'accepted');
+    
+    if (acceptedRequests.length > 0) {
+      // Check cancellation timing
+      const departureTime = new Date(ride.departure_time);
+      const now = new Date();
+      const hoursUntilDeparture = (departureTime - now) / (1000 * 60 * 60);
+      const isLateCancellation = hoursUntilDeparture < 24;
+
+      // If late cancellation, driver must pay compensation
+      if (isLateCancellation) {
+        // Calculate compensation (50% of ride price per passenger)
+        const compensationPerPassenger = Math.round(ride.price_per_seat * 0.5);
+        const totalCompensation = compensationPerPassenger * acceptedRequests.length;
+
+        // TODO: Implement compensation payment logic
+        console.log(`Driver owes compensation: KES ${totalCompensation}`);
+      }
+    }
+
+    // Update ride status
+    const { data: updatedRide, error: updateError } = await supabase
+      .from('rides')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: reason,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', rideId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Cancel all pending and accepted requests
+    const { error: cancelRequestsError } = await supabase
+      .from('ride_requests')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancelled_by: userId,
+        cancellation_reason: 'Ride cancelled by driver',
+        updated_at: new Date().toISOString()
+      })
+      .eq('ride_id', rideId)
+      .in('status', ['pending', 'accepted']);
+
+    if (cancelRequestsError) {
+      console.error('Error cancelling ride requests:', cancelRequestsError);
+    }
+
+    // Process refunds for all passengers
+    const refundPromises = acceptedRequests.map(request => 
+      processRideRequestRefund(request.id, false) // Driver cancellation = full refund
+    );
+
+    const refundResults = await Promise.all(refundPromises);
+
+    res.json({
+      success: true,
+      message: 'Ride cancelled successfully',
+      data: {
+        ride: updatedRide,
+        cancelled_requests: acceptedRequests.length,
+        refunds_processed: refundResults.filter(r => r.success).length,
+        refund_details: refundResults
+      }
+    });
+
+  } catch (error) {
+    console.error('Error cancelling ride:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to cancel ride'
+    });
+  }
+};
+
+// Get cancellation policy
+exports.getCancellationPolicy = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+
+    // Get ride request with departure time
+    const { data: rideRequest, error } = await supabase
+      .from('ride_requests')
+      .select(`
+        *,
+        rides!inner(departure_time, price_per_seat)
+      `)
+      .eq('id', requestId)
+      .single();
+
+    if (error || !rideRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ride request not found'
+      });
+    }
+
+    const departureTime = new Date(rideRequest.rides.departure_time);
+    const now = new Date();
+    const hoursUntilDeparture = (departureTime - now) / (1000 * 60 * 60);
+
+    let policy = {
+      can_cancel: true,
+      refund_percentage: 100,
+      cancellation_fee: 0,
+      deadline: null
+    };
+
+    if (hoursUntilDeparture < 2) {
+      // Within 2 hours - no cancellation allowed
+      policy.can_cancel = false;
+      policy.refund_percentage = 0;
+    } else if (hoursUntilDeparture < 24) {
+      // Within 24 hours - cancellation fee applies
+      policy.refund_percentage = 50;
+      policy.cancellation_fee = 25; // KES 25
+    }
+
+    res.json({
+      success: true,
+      data: {
+        policy,
+        departure_time: rideRequest.rides.departure_time,
+        hours_until_departure: Math.round(hoursUntilDeparture * 10) / 10
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting cancellation policy:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to get cancellation policy'
+    });
+  }
+};
+
+// Helper function to process refunds
+async function processRideRequestRefund(rideRequestId, isLateCancellation = false) {
+  try {
+    // Get all payments for this ride request
+    const { data: payments, error: paymentsError } = await supabase
+      .from('service_fee_payments')
+      .select('*')
+      .eq('ride_request_id', rideRequestId)
+      .eq('status', 'completed');
+
+    if (paymentsError) {
+      throw paymentsError;
+    }
+
+    if (!payments || payments.length === 0) {
+      return {
+        success: true,
+        message: 'No payments to refund',
+        refunded_amount: 0
+      };
+    }
+
+    let totalRefunded = 0;
+    const refundDetails = [];
+
+    for (const payment of payments) {
+      // Calculate refund amount
+      let refundAmount = parseFloat(payment.amount);
+      
+      if (isLateCancellation) {
+        // Apply cancellation fee (50% refund)
+        refundAmount = refundAmount * 0.5;
+      }
+
+      // Update payment status to refunded
+      const { error: updateError } = await supabase
+        .from('service_fee_payments')
+        .update({
+          status: 'refunded',
+          result_description: isLateCancellation ? 
+            'Partial refund due to late cancellation' : 
+            'Full refund - cancellation',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', payment.id);
+
+      if (updateError) {
+        console.error(`Error updating payment ${payment.id}:`, updateError);
+        continue;
+      }
+
+      // TODO: Process actual M-Pesa refund here
+      // For now, we just mark as refunded in database
+
+      totalRefunded += refundAmount;
+      refundDetails.push({
+        payment_id: payment.id,
+        original_amount: parseFloat(payment.amount),
+        refund_amount: refundAmount,
+        user_id: payment.user_id
+      });
+    }
+
+    return {
+      success: true,
+      message: 'Refunds processed successfully',
+      refunded_amount: totalRefunded,
+      refund_details: refundDetails
+    };
+
+  } catch (error) {
+    console.error('Error processing refund:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to process refund',
+      refunded_amount: 0
+    };
+  }
+}

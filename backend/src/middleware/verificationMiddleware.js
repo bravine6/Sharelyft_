@@ -3,7 +3,7 @@ const supabase = require('../config/supabase');
 // Middleware to check if user has completed both email and phone verification
 exports.requireFullVerification = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.user_id || req.user.id;
     
     // Get user profile with verification status
     const { data: profile, error } = await supabase
@@ -19,7 +19,6 @@ exports.requireFullVerification = async (req, res, next) => {
       });
     }
     
-    // Check email verification
     if (!profile.email_verified) {
       return res.status(403).json({
         message: 'Email verification required to access this feature',
@@ -30,20 +29,17 @@ exports.requireFullVerification = async (req, res, next) => {
         }
       });
     }
-    
-    // Check phone verification
-    if (!profile.phone_verified) {
-      return res.status(403).json({
-        message: 'Phone verification required to access this feature',
-        error: 'PHONE_NOT_VERIFIED',
-        required_verification: {
-          email: true,
-          phone: false
-        }
-      });
-    }
-    
-    // Both verifications complete, proceed
+
+    // Phone verification gate disabled while Twilio SMS is deferred.
+    // To re-enable: uncomment the block below once SMS delivery is working.
+    // if (!profile.phone_verified) {
+    //   return res.status(403).json({
+    //     message: 'Phone verification required to access this feature',
+    //     error: 'PHONE_NOT_VERIFIED',
+    //     required_verification: { email: true, phone: false }
+    //   });
+    // }
+
     next();
   } catch (error) {
     console.error('Verification middleware error:', error);
@@ -57,7 +53,7 @@ exports.requireFullVerification = async (req, res, next) => {
 // Middleware to check if user has email verification (less strict)
 exports.requireEmailVerification = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.user_id || req.user.id;
     
     // Get user profile with verification status
     const { data: profile, error } = await supabase
@@ -93,7 +89,7 @@ exports.requireEmailVerification = async (req, res, next) => {
 // Middleware to check verification status and add to request object (non-blocking)
 exports.addVerificationStatus = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.user_id || req.user.id;
     
     // Get user profile with verification status
     const { data: profile, error } = await supabase

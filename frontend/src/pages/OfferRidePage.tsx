@@ -137,7 +137,7 @@ export default function OfferRidePage() {
       origin_town: originTown?.name,
       destination_county: destinationCounty?.name,
       destination_town: destinationTown?.name,
-      departure_time: `${formData.date}T${formData.time}:00.000Z`,
+      departure_time: new Date(`${formData.date}T${formData.time}:00`).toISOString(),
       available_seats: parseInt(formData.available_seats.toString()),
       price_per_seat: priceValue,
       vehicle_id: formData.vehicle_id,

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { API_URL } from '@/config';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ export default function SettingsPage() {
   });
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   const [notificationSuccess, setNotificationSuccess] = useState('');
+  const [notificationError, setNotificationError] = useState('');
 
   // Privacy Settings State
   const [privacySettings, setPrivacySettings] = useState({
@@ -52,6 +54,53 @@ export default function SettingsPage() {
   });
   const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
   const [privacySuccess, setPrivacySuccess] = useState('');
+  const [privacyError, setPrivacyError] = useState('');
+
+  // Load current settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/profile/settings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const settings = await response.json();
+        
+        // Update notification settings
+        if (settings.email_notifications !== undefined) {
+          setNotificationSettings({
+            emailNotifications: settings.email_notifications || false,
+            smsNotifications: settings.sms_notifications || false,
+            pushNotifications: settings.push_notifications || false,
+            rideUpdates: settings.ride_reminders || false,
+            paymentAlerts: true, // Not stored in backend yet
+            promotionalEmails: settings.marketing_emails || false,
+            weeklyDigest: true // Not stored in backend yet
+          });
+        }
+
+        // Update privacy settings
+        if (settings.profile_visibility !== undefined) {
+          setPrivacySettings({
+            profileVisibility: settings.profile_visibility || 'public',
+            showPhoneNumber: settings.contact_sharing === 'everyone',
+            shareLocation: true, // Not stored in backend yet
+            allowContactFromDrivers: true, // Not stored in backend yet
+            allowContactFromPassengers: true // Not stored in backend yet
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -83,8 +132,23 @@ export default function SettingsPage() {
     try {
       setIsChangingPassword(true);
       
-      // TODO: Implement password change API call
-      // await changePassword(passwordData.currentPassword, passwordData.newPassword);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/profile/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          current_password: passwordData.currentPassword,
+          new_password: passwordData.newPassword
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to change password');
+      }
       
       setPasswordSuccess('Password changed successfully!');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -106,13 +170,32 @@ export default function SettingsPage() {
     try {
       setIsSavingNotifications(true);
       
-      // TODO: Implement notification settings API call
-      // await updateNotificationSettings(notificationSettings);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/profile/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email_notifications: notificationSettings.emailNotifications,
+          sms_notifications: notificationSettings.smsNotifications,
+          push_notifications: notificationSettings.pushNotifications,
+          ride_reminders: notificationSettings.rideUpdates,
+          marketing_emails: notificationSettings.promotionalEmails
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save notification settings');
+      }
       
       setNotificationSuccess('Notification preferences saved!');
       setTimeout(() => setNotificationSuccess(''), 3000);
     } catch (err: any) {
       console.error('Failed to save notification settings:', err);
+      setNotificationError(err.message || 'Failed to save notification settings');
     } finally {
       setIsSavingNotifications(false);
     }
@@ -126,13 +209,29 @@ export default function SettingsPage() {
     try {
       setIsSavingPrivacy(true);
       
-      // TODO: Implement privacy settings API call
-      // await updatePrivacySettings(privacySettings);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/profile/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          profile_visibility: privacySettings.profileVisibility,
+          contact_sharing: privacySettings.showPhoneNumber ? 'everyone' : 'verified_users'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save privacy settings');
+      }
       
       setPrivacySuccess('Privacy settings saved!');
       setTimeout(() => setPrivacySuccess(''), 3000);
     } catch (err: any) {
       console.error('Failed to save privacy settings:', err);
+      setPrivacyError(err.message || 'Failed to save privacy settings');
     } finally {
       setIsSavingPrivacy(false);
     }
@@ -311,6 +410,11 @@ export default function SettingsPage() {
                   {notificationSuccess}
                 </div>
               )}
+              {notificationError && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 p-3 rounded-md">
+                  {notificationError}
+                </div>
+              )}
 
               <div className="space-y-4">
                 {/* Email Notifications */}
@@ -451,6 +555,11 @@ export default function SettingsPage() {
               {privacySuccess && (
                 <div className="mb-4 bg-green-50 border border-green-200 text-green-600 p-3 rounded-md">
                   {privacySuccess}
+                </div>
+              )}
+              {privacyError && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 p-3 rounded-md">
+                  {privacyError}
                 </div>
               )}
 

@@ -48,6 +48,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Profile', path: '/profile', icon: <User size={20} /> },
     { name: 'Payment Methods', path: '/payment-methods', icon: <CreditCard size={20} /> },
     { name: 'Settings', path: '/settings', icon: <Settings size={20} /> },
+    // Admin section
+    ...((user as any)?.admin_permissions ? [{ name: 'Admin Dashboard', path: '/admin', icon: <Shield size={20} /> }] : []),
   ];
 
   return (

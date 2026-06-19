@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import CancelBookingModal from '@/components/CancelBookingModal';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -52,6 +53,7 @@ export default function MyRideRequestsPage() {
   const [requests, setRequests] = useState<RideRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.user_type === 'passenger' && token) {
@@ -269,13 +271,26 @@ export default function MyRideRequestsPage() {
                 {request.status === 'pending' && (
                   <div className="pt-4 border-t">
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                      <div className="flex items-center text-yellow-800">
-                        <Clock className="w-4 h-4 mr-2" />
-                        <span className="font-medium">Waiting for Driver Response</span>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center text-yellow-800">
+                            <Clock className="w-4 h-4 mr-2" />
+                            <span className="font-medium">Waiting for Driver Response</span>
+                          </div>
+                          <p className="text-yellow-700 text-sm mt-1">
+                            Your ride request is pending. The driver will respond soon.
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => setCancelRequestId(request.id)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Cancel
+                        </Button>
                       </div>
-                      <p className="text-yellow-700 text-sm mt-1">
-                        Your ride request is pending. The driver will respond soon.
-                      </p>
                     </div>
                   </div>
                 )}
@@ -309,14 +324,25 @@ export default function MyRideRequestsPage() {
                             Great news! Your ride request has been accepted. Start chatting with your driver to coordinate pickup details.
                           </p>
                         </div>
-                        <Button
-                          onClick={() => handleStartChat(request)}
-                          size="sm"
-                          className="bg-blue-600 hover:bg-blue-700 text-white ml-4"
-                        >
-                          <MessageSquare className="w-4 h-4 mr-2" />
-                          Start Chat
-                        </Button>
+                        <div className="flex flex-col gap-2 ml-4">
+                          <Button
+                            onClick={() => handleStartChat(request)}
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            <MessageSquare className="w-4 h-4 mr-2" />
+                            Start Chat
+                          </Button>
+                          <Button
+                            onClick={() => setCancelRequestId(request.id)}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 border-red-300 hover:bg-red-50"
+                          >
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -325,6 +351,19 @@ export default function MyRideRequestsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {cancelRequestId && (
+        <CancelBookingModal
+          isOpen={true}
+          onClose={() => setCancelRequestId(null)}
+          requestId={cancelRequestId}
+          type="request"
+          onSuccess={() => {
+            setCancelRequestId(null);
+            loadRideRequests();
+          }}
+        />
       )}
     </DashboardLayout>
   );

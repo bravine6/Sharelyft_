@@ -62,28 +62,6 @@ const RideRequestModal: React.FC<RideRequestModalProps> = ({
     setError(null);
 
     try {
-      console.log('🚀 Making ride request...');
-      console.log('URL:', `${API_URL}/rides/${ride.id}/request`);
-      console.log('Token:', token);
-      console.log('Payload:', { passengers, message: message.trim() || undefined });
-
-      // Try both regular endpoint and debug endpoint
-      const debugResponse = await fetch(`${API_URL.replace('/api', '')}/debug-ride-request/${ride.id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          passengers,
-          message: message.trim() || undefined,
-          debug: true
-        })
-      });
-      
-      console.log('🔍 Debug response status:', debugResponse.status);
-      console.log('🔍 Debug response:', await debugResponse.text());
-
       const response = await fetch(`${API_URL}/rides/${ride.id}/request`, {
         method: 'POST',
         headers: {

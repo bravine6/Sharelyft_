@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Car, CheckCircle, XCircle, Loader } from 'lucide-react';
@@ -10,8 +10,12 @@ export default function VerifyEmailPage() {
   const [message, setMessage] = useState('');
   
   const token = searchParams.get('token');
+  const hasVerified = useRef(false);
 
   useEffect(() => {
+    if (hasVerified.current) return;
+    hasVerified.current = true;
+
     const verifyEmail = async () => {
       if (!token) {
         setStatus('error');

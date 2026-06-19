@@ -11,6 +11,9 @@ router.get('/payment/:paymentId/status', auth, mpesaController.checkPaymentStatu
 // Public callback route (M-Pesa will call this)
 router.post('/callback', mpesaController.handleCallback);
 
+// Manual webhook endpoint for testing (can be used to simulate payment completion)
+router.post('/webhook/mark-paid/:rideRequestId', auth, mpesaController.markBookingAsPaid);
+
 // Test endpoint for M-Pesa configuration
 router.get('/test', auth, async (req, res) => {
   try {

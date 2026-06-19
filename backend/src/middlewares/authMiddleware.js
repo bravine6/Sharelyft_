@@ -19,16 +19,12 @@ const auth = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Get user from Supabase
-    console.log('Looking for user with ID:', decoded.id);
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('user_id', decoded.id)
       .single();
-    
-    console.log('User profile data:', data);
-    console.log('User profile error:', error);
-    
+
     if (error || !data) {
       return res.status(401).json({ message: 'User not found' });
     }

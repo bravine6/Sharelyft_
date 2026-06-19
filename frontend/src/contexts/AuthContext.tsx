@@ -12,6 +12,10 @@ interface User {
   user_type: 'driver' | 'passenger';
   email_verified: boolean;
   phone_verified: boolean;
+  profile_photo?: string;
+  driver_license_verified?: boolean;
+  vehicle_insurance_verified?: boolean;
+  admin_permissions?: boolean;
 }
 
 interface AuthContextType {
@@ -20,9 +24,11 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
   updateProfile: (userData: Partial<User>) => Promise<void>;
+  refreshUser: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
@@ -133,6 +139,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const loginWithGoogle = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Import supabase client
+      const { supabase } = await import('@/lib/supabase');
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // The OAuth flow will redirect to Google, then back to /auth/callback
+      // The actual login completion will be handled in the callback page
+    } catch (error) {
+      console.error('Google login error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const register = async (userData: RegisterData) => {
     try {
       setIsLoading(true);
@@ -165,7 +199,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_URL}/auth/profile`, {
+      const response = await fetch(`${API_URL}/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -179,14 +213,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error(error.message || 'Profile update failed');
       }
 
-      const updatedUser = await response.json();
-      setUser(prev => prev ? { ...prev, ...updatedUser } : null);
+      const result = await response.json();
+      const updatedUser = result.user || result;
+      const newUserData = user ? { ...user, ...updatedUser } : null;
+      setUser(newUserData);
+      
+      // Also update localStorage to persist changes
+      if (newUserData) {
+        localStorage.setItem('user', JSON.stringify(newUserData));
+      }
     } catch (error) {
       console.error('Profile update error:', error);
       throw error;
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const refreshUser = async () => {
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+    await fetchUser(token);
   };
 
   const forgotPassword = async (email: string) => {
@@ -334,9 +382,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: !!user,
     isLoading,
     login,
+    loginWithGoogle,
     register,
     logout,
     updateProfile,
+    refreshUser,
     forgotPassword,
     resetPassword,
     verifyEmail,

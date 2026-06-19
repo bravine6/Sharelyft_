@@ -144,6 +144,62 @@ export default function RidePostingPayment({
     }
   };
   
+  const handlePaystackPayment = async () => {
+    setIsProcessing(true);
+    setError('');
+    setStep('processing');
+
+    try {
+      // 1. Create the ride first so we have a ride_id to attach to the payment
+      const rideResponse = await fetch(`${API_URL}/rides`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ ...rideData, status: 'active' })
+      });
+
+      if (!rideResponse.ok) {
+        let msg = 'Failed to create ride';
+        try {
+          const err = await rideResponse.json();
+          msg = err.message || msg;
+        } catch { /* ignore */ }
+        throw new Error(msg);
+      }
+
+      const ride = await rideResponse.json();
+
+      // 2. Initiate Paystack transaction
+      const initResponse = await fetch(`${API_URL}/paystack/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          purpose: 'ride_posting',
+          amount: SERVICE_FEE,
+          ride_id: ride?.id
+        })
+      });
+
+      const initData = await initResponse.json();
+      if (!initResponse.ok || !initData.authorization_url) {
+        throw new Error(initData.message || 'Failed to initiate Paystack payment');
+      }
+
+      // 3. Redirect to Paystack hosted checkout
+      window.location.href = initData.authorization_url;
+    } catch (err: any) {
+      console.error('Paystack flow error:', err);
+      setError(err.message || 'Payment initiation failed');
+      setStep('payment');
+      setIsProcessing(false);
+    }
+  };
+
   const handlePayment = async () => {
     if (!selectedPaymentMethod) {
       setError('Please select a payment method');
@@ -169,21 +225,23 @@ export default function RidePostingPayment({
       });
       
       if (!rideResponse.ok) {
-        throw new Error('Failed to create ride');
+        let msg = 'Failed to create ride';
+        try {
+          const err = await rideResponse.json();
+          msg = err.message || msg;
+        } catch { /* response wasn't JSON */ }
+        throw new Error(msg);
       }
-      
-      const { ride } = await rideResponse.json();
+
+      const ride = await rideResponse.json();
       console.log('Ride created:', ride);
       
-      // Always allow payment to go through - no actual payment processing for now
+      // Payment is a no-op for now; success means ride was created
       setStep('success');
-      
     } catch (error: any) {
-      console.error('Payment Error:', error);
-      // Always allow payment to go through
-      setTimeout(() => {
-        setStep('success');
-      }, 1500);
+      console.error('Ride creation error:', error);
+      setError(error.message || 'Failed to create ride. Please try again.');
+      setStep('payment');
     } finally {
       setIsProcessing(false);
     }
@@ -347,7 +405,18 @@ export default function RidePostingPayment({
             </div>
             
             {/* Footer */}
-            <div className="p-6 border-t bg-gray-50">
+            <div className="p-6 border-t bg-gray-50 space-y-3">
+              {/* Primary: Paystack — real, working integration */}
+              <Button
+                onClick={handlePaystackPayment}
+                disabled={isProcessing}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <CreditCard className="w-4 h-4 mr-2" />
+                Pay KES {SERVICE_FEE} via Paystack (Card or M-Pesa)
+              </Button>
+
+              {/* Secondary fallback: existing flow */}
               <div className="flex space-x-3">
                 <Button
                   onClick={onClose}
@@ -360,9 +429,10 @@ export default function RidePostingPayment({
                 <Button
                   onClick={handlePayment}
                   disabled={!selectedPaymentMethod || isProcessing || paymentMethods.length === 0}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  className="flex-1"
+                  variant="outline"
                 >
-                  Pay KES {SERVICE_FEE}
+                  Pay via saved method
                 </Button>
               </div>
             </div>
