@@ -180,7 +180,10 @@ const mpesaController = {
 
       // If payment successful, check if both parties have paid and unlock connection
       if (callbackData.resultCode === 0) {
+        console.log(`Payment successful for ride request: ${payment.ride_request_id}, checking if booking can be marked as PAID`);
         await this.checkAndUnlockConnection(payment.ride_request_id);
+      } else {
+        console.log(`Payment failed for ride request: ${payment.ride_request_id}, result code: ${callbackData.resultCode}`);
       }
 
       // Acknowledge receipt to M-Pesa
@@ -294,21 +297,118 @@ const mpesaController = {
       const passengerPaid = payments.some(p => p.user_id === passengerId);
 
       if (driverPaid && passengerPaid) {
-        // Unlock the connection
+        // Unlock the connection and mark booking as PAID
         await supabase
           .from('ride_requests')
           .update({
             connection_unlocked: true,
             chat_enabled: true,
             contact_info_revealed: true,
+            payment_status: 'PAID',
+            payment_completed_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
           .eq('id', rideRequestId);
 
-        console.log(`Connection unlocked for ride request: ${rideRequestId}`);
+        console.log(`Connection unlocked and booking marked as PAID for ride request: ${rideRequestId}`);
       }
     } catch (error) {
       console.error('Error checking connection unlock:', error);
+    }
+  },
+
+  // Manual method to mark booking as paid (for testing)
+  async markBookingAsPaid(req, res) {
+    try {
+      const { rideRequestId } = req.params;
+      const userId = req.user.id;
+
+      // Verify the user has access to this ride request (is driver or passenger)
+      const { data: rideRequest, error: requestError } = await supabase
+        .from('ride_requests')
+        .select(`
+          *,
+          rides!inner(driver_id)
+        `)
+        .eq('id', rideRequestId)
+        .single();
+
+      if (requestError || !rideRequest) {
+        return res.status(404).json({
+          success: false,
+          message: 'Ride request not found'
+        });
+      }
+
+      const isDriver = rideRequest.rides.driver_id === userId;
+      const isPassenger = rideRequest.passenger_id === userId;
+
+      if (!isDriver && !isPassenger) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized to access this ride request'
+        });
+      }
+
+      // Create mock completed payments for both users if they don't exist
+      const driverId = rideRequest.rides.driver_id;
+      const passengerId = rideRequest.passenger_id;
+
+      for (const user_id of [driverId, passengerId]) {
+        const { data: existingPayment } = await supabase
+          .from('service_fee_payments')
+          .select('id')
+          .eq('ride_request_id', rideRequestId)
+          .eq('user_id', user_id)
+          .single();
+
+        if (!existingPayment) {
+          await supabase
+            .from('service_fee_payments')
+            .insert({
+              id: `test_${Date.now()}_${user_id.slice(-8)}`,
+              ride_request_id: rideRequestId,
+              user_id: user_id,
+              amount: 50.00,
+              payment_method_type: 'mpesa',
+              transaction_reference: `TEST_${Date.now()}`,
+              status: 'completed',
+              paid_at: new Date().toISOString(),
+              result_code: 0,
+              result_description: 'Test payment completed',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+        } else {
+          // Update existing payment to completed
+          await supabase
+            .from('service_fee_payments')
+            .update({
+              status: 'completed',
+              paid_at: new Date().toISOString(),
+              result_code: 0,
+              result_description: 'Test payment completed',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingPayment.id);
+        }
+      }
+
+      // Now check and unlock connection
+      await this.checkAndUnlockConnection(rideRequestId);
+
+      res.json({
+        success: true,
+        message: 'Booking marked as PAID successfully',
+        ride_request_id: rideRequestId
+      });
+
+    } catch (error) {
+      console.error('Error marking booking as paid:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to mark booking as paid'
+      });
     }
   }
 };

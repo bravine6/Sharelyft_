@@ -19,6 +19,9 @@ import MyRideRequestsPage from './pages/MyRideRequestsPage'
 import VehiclesPage from './pages/VehiclesPage'
 import NotFoundPage from './pages/NotFoundPage'
 import { ChatPage } from './pages/ChatPage'
+import AdminDashboard from './pages/AdminDashboard'
+import AuthCallbackPage from './pages/AuthCallbackPage'
+import PaystackCallbackPage from './pages/PaystackCallbackPage'
 
 function App() {
   return (
@@ -31,6 +34,8 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route path="/paystack/callback" element={<PaystackCallbackPage />} />
         
         {/* Protected routes */}
         <Route element={<ProtectedRoute />}>
@@ -46,6 +51,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/payment-methods" element={<PaymentMethodsPage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Route>
 
         {/* Fallback route */}

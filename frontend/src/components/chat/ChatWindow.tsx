@@ -82,6 +82,34 @@ export const ChatWindow = ({ conversation }: ChatWindowProps) => {
     }
   };
 
+  const handlePayWithPaystack = async () => {
+    try {
+      setPaying(true);
+      const token = localStorage.getItem('token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/paystack/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          purpose: 'connection_fee',
+          amount: 50,
+          conversation_id: conversation.id,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.authorization_url) {
+        throw new Error(data.message || 'Failed to initiate Paystack payment');
+      }
+      window.location.href = data.authorization_url;
+    } catch (err) {
+      console.error('Paystack payment failed:', err);
+      setPaying(false);
+    }
+  };
+
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString([], { 
       hour: '2-digit', 
@@ -353,21 +381,30 @@ export const ChatWindow = ({ conversation }: ChatWindowProps) => {
               </p>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-2">
+              <div className="space-y-2">
                 <Button
-                  onClick={() => setShowPaymentPrompt(false)}
-                  variant="outline"
-                  className="flex-1"
+                  onClick={handlePayWithPaystack}
                   disabled={paying}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  Cancel
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  {paying ? 'Processing...' : 'Pay KES 50 via Paystack'}
                 </Button>
                 <Button
                   onClick={handlePayForContacts}
-                  className="flex-1"
+                  className="w-full"
+                  variant="outline"
                   disabled={paying}
                 >
-                  {paying ? 'Processing...' : 'Pay KES 50'}
+                  {paying ? 'Processing...' : 'Pay KES 50 via M-Pesa (legacy)'}
+                </Button>
+                <Button
+                  onClick={() => setShowPaymentPrompt(false)}
+                  variant="ghost"
+                  className="w-full"
+                  disabled={paying}
+                >
+                  Cancel
                 </Button>
               </div>
             </CardContent>

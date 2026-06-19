@@ -5,15 +5,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { API_URL } from '@/config';
-import { 
-  MapPin, 
-  Clock, 
-  Users, 
+import {
+  MapPin,
+  Clock,
+  Users,
   DollarSign,
   Car,
   Edit,
-  Trash2
+  Trash2,
+  XCircle
 } from 'lucide-react';
+import CancelBookingModal from '@/components/CancelBookingModal';
 
 interface Ride {
   id: string;
@@ -38,6 +40,7 @@ export default function MyRidesPage() {
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelRideId, setCancelRideId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMyRides();
@@ -188,6 +191,15 @@ export default function MyRidesPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setCancelRideId(ride.id)}
+                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                      >
+                        <XCircle className="w-4 h-4 mr-1" />
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleDeleteRide(ride.id)}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -250,6 +262,19 @@ export default function MyRidesPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {cancelRideId && (
+        <CancelBookingModal
+          isOpen={true}
+          onClose={() => setCancelRideId(null)}
+          requestId={cancelRideId}
+          type="ride"
+          onSuccess={() => {
+            setCancelRideId(null);
+            fetchMyRides();
+          }}
+        />
       )}
     </DashboardLayout>
   );

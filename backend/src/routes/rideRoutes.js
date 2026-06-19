@@ -30,4 +30,9 @@ router.get('/requests/:requestId', addVerificationStatus, rideController.getRide
 router.get('/:id', addVerificationStatus, rideController.getRideById);
 router.get('/:id/requests', addVerificationStatus, rideController.getRideRequests);
 
+// Cancellation routes
+router.patch('/:id/cancel', auth, rideController.cancelRide);
+router.patch('/requests/:requestId/cancel', auth, rideController.cancelRideRequest);
+router.get('/requests/:requestId/cancellation-policy', auth, rideController.getCancellationPolicy);
+
 module.exports = router;

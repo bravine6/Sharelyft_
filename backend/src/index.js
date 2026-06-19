@@ -15,6 +15,7 @@ const profileRoutes = require('./routes/profileRoutes');
 const paymentMethodsRoutes = require('./routes/paymentMethodsRoutes');
 const ridePaymentRoutes = require('./routes/ridePaymentRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const driverVerificationRoutes = require('./routes/driverVerificationRoutes');
 
 // Initialize express app and HTTP server
 const app = express();
@@ -101,10 +102,13 @@ app.use('/api/locations', locationRoutes);
 app.use('/api/vehicles', require('./routes/vehicleRoutes'));
 app.use('/api/service-fee', require('./routes/serviceFeeRoutes'));
 app.use('/api/mpesa', require('./routes/mpesaRoutes'));
+app.use('/api/paystack', require('./routes/paystackRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/profile', profileRoutes);
 app.use('/api/payment-methods', paymentMethodsRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/driver/verification', driverVerificationRoutes);
+app.use('/api/admin', require('./routes/adminRoutes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

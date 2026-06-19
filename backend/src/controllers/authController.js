@@ -693,3 +693,306 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Google OAuth authentication
+exports.googleAuth = async (req, res) => {
+  try {
+    const { googleUser, accessToken } = req.body;
+    
+    if (!googleUser || !googleUser.email) {
+      return res.status(400).json({ message: 'Invalid Google user data' });
+    }
+    
+    // Check if user already exists
+    let { data: existingProfile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('email', googleUser.email)
+      .single();
+    
+    let authUserId = googleUser.id;
+    let userProfile;
+    
+    if (profileError && profileError.code === 'PGRST116') {
+      // User doesn't exist, create new user
+      console.log('Creating new Google user:', googleUser.email);
+      
+      // Create profile in user_profiles table
+      const newProfile = {
+        user_id: authUserId,
+        email: googleUser.email,
+        first_name: googleUser.name || googleUser.email.split('@')[0],
+        email_verified: true, // Google accounts are pre-verified
+        phone_verified: false,
+        user_type: 'passenger', // Default to passenger
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        // Store Google info
+        google_id: googleUser.id,
+        profile_photo: googleUser.picture
+      };
+      
+      const { data: createdProfile, error: createError } = await supabase
+        .from('user_profiles')
+        .insert(newProfile)
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error('Error creating Google user profile:', createError);
+        return res.status(500).json({ message: 'Failed to create user profile' });
+      }
+      
+      userProfile = createdProfile;
+    } else if (profileError) {
+      console.error('Error checking existing user:', profileError);
+      return res.status(500).json({ message: 'Database error' });
+    } else {
+      // User exists, update Google info if needed
+      console.log('Existing Google user found:', googleUser.email);
+      
+      const updateData = {
+        updated_at: new Date().toISOString()
+      };
+      
+      // Update Google ID and photo if not set
+      if (!existingProfile.google_id) {
+        updateData.google_id = googleUser.id;
+      }
+      if (!existingProfile.profile_photo && googleUser.picture) {
+        updateData.profile_photo = googleUser.picture;
+      }
+      
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from('user_profiles')
+        .update(updateData)
+        .eq('user_id', existingProfile.user_id)
+        .select()
+        .single();
+      
+      if (updateError) {
+        console.error('Error updating Google user profile:', updateError);
+        return res.status(500).json({ message: 'Failed to update user profile' });
+      }
+      
+      userProfile = updatedProfile;
+      authUserId = existingProfile.user_id;
+    }
+    
+    // Create JWT token
+    const token = jwt.sign(
+      { id: authUserId, email: googleUser.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    // Return user data
+    const userData = {
+      id: authUserId,
+      email: userProfile.email,
+      first_name: userProfile.first_name,
+      national_id: userProfile.national_id,
+      date_of_birth: userProfile.date_of_birth,
+      gender: userProfile.gender,
+      phone: userProfile.phone,
+      user_type: userProfile.user_type,
+      email_verified: userProfile.email_verified,
+      phone_verified: userProfile.phone_verified,
+      profile_photo: userProfile.profile_photo,
+      google_id: userProfile.google_id
+    };
+    
+    res.json({
+      user: userData,
+      token,
+      message: 'Google authentication successful'
+    });
+    
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Google OAuth login initiation
+exports.googleLogin = async (req, res) => {
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${process.env.API_URL || 'http://localhost:5000'}/auth/google/callback`
+      }
+    });
+
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
+
+    // Redirect to Google OAuth
+    res.redirect(data.url);
+  } catch (error) {
+    console.error('Google login initiation error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Google OAuth callback handler
+exports.googleCallback = async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    
+    if (!code) {
+      return res.status(400).send(`
+        <script>
+          window.opener.postMessage({
+            type: 'GOOGLE_AUTH_ERROR',
+            error: 'No authorization code received'
+          }, '*');
+          window.close();
+        </script>
+      `);
+    }
+
+    // Exchange code for session
+    const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
+    
+    if (error || !session?.user) {
+      return res.status(400).send(`
+        <script>
+          window.opener.postMessage({
+            type: 'GOOGLE_AUTH_ERROR',
+            error: 'Failed to get user session'
+          }, '*');
+          window.close();
+        </script>
+      `);
+    }
+
+    const googleUser = {
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
+      picture: session.user.user_metadata?.avatar_url,
+      provider: 'google'
+    };
+
+    // Use existing googleAuth logic to create/sync user
+    const userData = await handleGoogleUser(googleUser);
+    
+    // Send success message to parent window
+    res.send(`
+      <script>
+        window.opener.postMessage({
+          type: 'GOOGLE_AUTH_SUCCESS',
+          token: '${userData.token}',
+          user: ${JSON.stringify(userData.user)}
+        }, '*');
+        window.close();
+      </script>
+    `);
+
+  } catch (error) {
+    console.error('Google callback error:', error);
+    res.status(500).send(`
+      <script>
+        window.opener.postMessage({
+          type: 'GOOGLE_AUTH_ERROR',
+          error: 'Authentication failed'
+        }, '*');
+        window.close();
+      </script>
+    `);
+  }
+};
+
+// Helper function to handle Google user creation/sync
+async function handleGoogleUser(googleUser) {
+  // Check if user already exists
+  let { data: existingProfile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('email', googleUser.email)
+    .single();
+  
+  let authUserId = googleUser.id;
+  let userProfile;
+  
+  if (profileError && profileError.code === 'PGRST116') {
+    // User doesn't exist, create new user
+    const newProfile = {
+      user_id: authUserId,
+      email: googleUser.email,
+      first_name: googleUser.name || googleUser.email.split('@')[0],
+      email_verified: true,
+      phone_verified: false,
+      user_type: 'passenger',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      google_id: googleUser.id,
+      profile_photo: googleUser.picture
+    };
+    
+    const { data: createdProfile, error: createError } = await supabase
+      .from('user_profiles')
+      .insert(newProfile)
+      .select()
+      .single();
+    
+    if (createError) {
+      throw new Error('Failed to create user profile');
+    }
+    
+    userProfile = createdProfile;
+  } else if (profileError) {
+    throw new Error('Database error');
+  } else {
+    // User exists, update Google info if needed
+    const updateData = { updated_at: new Date().toISOString() };
+    
+    if (!existingProfile.google_id) {
+      updateData.google_id = googleUser.id;
+    }
+    if (!existingProfile.profile_photo && googleUser.picture) {
+      updateData.profile_photo = googleUser.picture;
+    }
+    
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from('user_profiles')
+      .update(updateData)
+      .eq('user_id', existingProfile.user_id)
+      .select()
+      .single();
+    
+    if (updateError) {
+      throw new Error('Failed to update user profile');
+    }
+    
+    userProfile = updatedProfile;
+    authUserId = existingProfile.user_id;
+  }
+  
+  // Create JWT token
+  const token = jwt.sign(
+    { id: authUserId, email: googleUser.email },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+  
+  // Return user data
+  const userData = {
+    id: authUserId,
+    email: userProfile.email,
+    first_name: userProfile.first_name,
+    national_id: userProfile.national_id,
+    date_of_birth: userProfile.date_of_birth,
+    gender: userProfile.gender,
+    phone: userProfile.phone,
+    user_type: userProfile.user_type,
+    email_verified: userProfile.email_verified,
+    phone_verified: userProfile.phone_verified,
+    profile_photo: userProfile.profile_photo,
+    google_id: userProfile.google_id
+  };
+  
+  return { user: userData, token };
+}

@@ -24,8 +24,28 @@ const upload = multer({
 router.get('/', authMiddleware, profileController.getProfile);
 router.put('/', authMiddleware, profileController.updateProfile);
 
+// Multer error handling middleware
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    switch (err.code) {
+      case 'LIMIT_FILE_SIZE':
+        return res.status(400).json({ message: 'File too large. Maximum size is 5MB' });
+      case 'LIMIT_FILE_COUNT':
+        return res.status(400).json({ message: 'Too many files. Only one file allowed' });
+      case 'LIMIT_UNEXPECTED_FILE':
+        return res.status(400).json({ message: 'Unexpected file field' });
+      default:
+        return res.status(400).json({ message: 'File upload error: ' + err.message });
+    }
+  } else if (err) {
+    // Handle other file filter errors
+    return res.status(400).json({ message: err.message });
+  }
+  next();
+};
+
 // Profile photo routes
-router.post('/photo', authMiddleware, upload.single('photo'), profileController.uploadProfilePhoto);
+router.post('/photo', authMiddleware, upload.single('photo'), handleMulterError, profileController.uploadProfilePhoto);
 router.delete('/photo', authMiddleware, profileController.deleteProfilePhoto);
 
 // Settings routes
