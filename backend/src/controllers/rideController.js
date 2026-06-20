@@ -199,11 +199,12 @@ exports.getRideById = async (req, res) => {
   try {
     const { id } = req.params;
     
+    // Driver phone is NOT exposed here — only revealed in chat after both parties pay.
     const { data, error } = await supabase
       .from('rides')
       .select(`
         *,
-        driver:driver_id(id, name, phone),
+        driver:driver_id(id, name),
         vehicle:vehicle_id(*),
         ride_requests(*)
       `)
@@ -594,14 +595,16 @@ exports.getUserRideRequests = async (req, res) => {
     
     console.log('Getting ride requests for user:', userId, 'type:', userType);
     
-    // For passengers, get their ride requests with payment status
+    // For passengers, get their ride requests with payment status.
+    // Driver's phone/email are NEVER embedded here — they are only revealed
+    // through the chat conversation once both parties have paid.
     const { data: rideRequests, error } = await supabase
       .from('ride_requests')
       .select(`
         *,
         ride:ride_id (
           *,
-          driver:driver_id (name, phone, email)
+          driver:driver_id (name)
         )
       `)
       .eq('passenger_id', userId)

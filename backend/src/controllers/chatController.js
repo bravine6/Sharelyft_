@@ -28,7 +28,12 @@ const chatController = {
       const formattedConversations = conversations.map(conv => {
         const isDriver = conv.driver_id === userId;
         const otherUser = isDriver ? conv.passenger : conv.driver;
-        
+
+        // Compute contact_shared from payment flags — never trust the DB column,
+        // since triggers/defaults could flip it incorrectly. Contact is shared
+        // only when BOTH parties have paid.
+        const bothPaid = !!(conv.driver_paid && conv.passenger_paid);
+
         return {
           id: conv.id,
           ride_id: conv.ride_id,
@@ -235,16 +240,17 @@ const chatController = {
         is_read: msg.is_read
       }));
 
-      // Include contact info if shared
-      // isDriver already declared above
-      const contactInfo = conversation.contact_shared ? {
+      // Include contact info only if BOTH parties have paid.
+      // Compute from payment flags — don't trust the DB column.
+      const bothPaid = !!(conversation.driver_paid && conversation.passenger_paid);
+      const contactInfo = bothPaid ? {
         my_info: isDriver ? conversation.driver_contact_info : conversation.passenger_contact_info,
         other_info: isDriver ? conversation.passenger_contact_info : conversation.driver_contact_info
       } : null;
 
       res.json({
         messages: formattedMessages,
-        contact_shared: conversation.contact_shared,
+        contact_shared: bothPaid,
         contact_info: contactInfo,
         has_more: messages.length === limit
       });
