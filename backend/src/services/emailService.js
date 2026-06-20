@@ -4,42 +4,35 @@ class EmailService {
   constructor() {
     this.emailEnabled = false;
     this.fromEmail = process.env.FROM_EMAIL || 'noreply@sharelyft.com';
-    
-    // Configure email transporter based on environment
-    if (process.env.NODE_ENV === 'production') {
-      // Use SendGrid in production
-      if (process.env.SENDGRID_API_KEY) {
-        this.transporter = nodemailer.createTransport({
-          service: 'SendGrid',
-          auth: {
-            user: 'apikey',
-            pass: process.env.SENDGRID_API_KEY
-          }
-        });
-        this.emailEnabled = true;
-        console.log('Email service initialized with SendGrid');
-      } else {
-        console.log('SendGrid API key not found - emails will be simulated');
-      }
+
+    // Prefer SendGrid when configured (production-grade), otherwise fall back
+    // to Gmail SMTP. Either works in any NODE_ENV.
+    if (process.env.SENDGRID_API_KEY) {
+      this.transporter = nodemailer.createTransport({
+        service: 'SendGrid',
+        auth: {
+          user: 'apikey',
+          pass: process.env.SENDGRID_API_KEY
+        }
+      });
+      this.emailEnabled = true;
+      console.log('Email service initialized with SendGrid');
+    } else if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        secure: true,
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD // App password for Gmail
+        },
+        tls: {
+          rejectUnauthorized: false
+        }
+      });
+      this.emailEnabled = true;
+      console.log('Email service initialized with Gmail');
     } else {
-      // Use Gmail SMTP for development
-      if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
-        this.transporter = nodemailer.createTransport({
-          service: 'gmail',
-          secure: true,
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD // App password for Gmail
-          },
-          tls: {
-            rejectUnauthorized: false
-          }
-        });
-        this.emailEnabled = true;
-        console.log('Email service initialized with Gmail');
-      } else {
-        console.log('Gmail credentials not found - emails will be simulated');
-      }
+      console.log('No email provider configured - emails will be simulated');
     }
   }
 
