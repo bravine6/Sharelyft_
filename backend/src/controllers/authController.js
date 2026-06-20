@@ -143,32 +143,40 @@ exports.register = async (req, res) => {
   }
 };
 
-// Verify email address
+// Verify email address. Idempotent: a token that's been consumed already
+// (because the user clicked the link twice) returns success, not error.
 exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.body;
-    
+
     if (!token) {
       return res.status(400).json({ message: 'Verification token is required' });
     }
-    
-    // Find user with this token
+
+    // maybeSingle so "no rows" isn't an error — we treat it as "already used."
     const { data: profile, error } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('email_verification_token', token)
-      .single();
-    
-    if (error || !profile) {
-      return res.status(400).json({ message: 'Invalid or expired verification token' });
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ message: error.message });
     }
-    
-    // Check if token is expired
+
+    if (!profile) {
+      // Token was either already consumed (success path) or never existed.
+      // Return success so the user isn't confused by a refresh/double-click.
+      return res.json({ message: 'Email already verified or link already used. You can log in.' });
+    }
+
     if (new Date() > new Date(profile.email_verification_expires)) {
-      return res.status(400).json({ message: 'Verification token has expired' });
+      return res.status(400).json({
+        message: 'Verification link expired. Please request a new one.',
+        error: 'TOKEN_EXPIRED'
+      });
     }
-    
-    // Update user profile - mark email as verified
+
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({
@@ -177,21 +185,26 @@ exports.verifyEmail = async (req, res) => {
         email_verification_expires: null
       })
       .eq('user_id', profile.user_id);
-    
+
     if (updateError) {
       return res.status(500).json({ message: updateError.message });
     }
-    
-    // Confirm email in Supabase Auth
-    await supabase.auth.admin.updateUserById(profile.user_id, {
-      email_confirm: true
-    });
-    
-    // Send welcome email if both email and phone are verified
-    if (profile.phone_verified) {
-      await emailService.sendWelcomeEmail(profile.email, profile.name);
+
+    // Confirm email in Supabase Auth (best-effort — don't fail the verify if this errors)
+    try {
+      await supabase.auth.admin.updateUserById(profile.user_id, { email_confirm: true });
+    } catch (e) {
+      console.warn('[verifyEmail] supabase auth confirm failed (non-fatal):', e.message);
     }
-    
+
+    if (profile.phone_verified) {
+      try {
+        await emailService.sendWelcomeEmail(profile.email, profile.first_name || profile.name);
+      } catch (e) {
+        console.warn('[verifyEmail] welcome email failed (non-fatal):', e.message);
+      }
+    }
+
     res.json({ message: 'Email verified successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -532,15 +545,10 @@ exports.login = async (req, res) => {
       return res.status(404).json({ message: 'User profile not found' });
     }
     
-    // Block login if email is not verified
-    if (!profile.email_verified) {
-      return res.status(403).json({ 
-        message: 'Please verify your email before logging in',
-        error: 'EMAIL_NOT_VERIFIED',
-        email: profile.email
-      });
-    }
-    
+    // Email verification is NOT a login gate. Unverified users get in but
+    // see a banner prompting them to verify (or resend the verification email).
+    // The returned `email_verified` flag drives that UI.
+
     // Create JWT token
     const token = jwt.sign(
       { id: data.user.id, email: data.user.email },

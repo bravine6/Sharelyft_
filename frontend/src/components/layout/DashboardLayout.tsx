@@ -1,21 +1,24 @@
 import { ReactNode, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Car, 
-  User, 
-  LogOut, 
-  Menu, 
-  X, 
-  Home, 
-  Search, 
-  PlusCircle, 
-  Clock, 
-  MessageSquare, 
+import { API_URL } from '@/config';
+import {
+  Car,
+  User,
+  LogOut,
+  Menu,
+  X,
+  Home,
+  Search,
+  PlusCircle,
+  Clock,
+  MessageSquare,
   Settings,
   FileText,
   Shield,
-  CreditCard
+  CreditCard,
+  Mail,
+  CheckCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -25,6 +28,8 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,6 +39,29 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const handleResendVerification = async () => {
+    if (!user?.email) return;
+    try {
+      setResending(true);
+      setResendMessage(null);
+      const response = await fetch(`${API_URL}/auth/resend-email-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setResendMessage({ type: 'success', text: 'Verification email sent. Check your inbox (and spam).' });
+      } else {
+        setResendMessage({ type: 'error', text: data.message || 'Failed to resend verification email.' });
+      }
+    } catch (err: any) {
+      setResendMessage({ type: 'error', text: err.message || 'Network error.' });
+    } finally {
+      setResending(false);
+    }
   };
 
   const navLinks = [
@@ -170,6 +198,34 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* Main content */}
         <main className="flex-1 p-6 overflow-auto">
+          {user && !user.email_verified && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-md p-4">
+              <div className="flex items-start gap-3">
+                <Mail className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium text-amber-900">Verify your email</p>
+                  <p className="text-sm text-amber-800 mt-1">
+                    Your email <span className="font-medium">{user.email}</span> isn't verified yet.
+                    Some features may be limited. Check your inbox or resend the link below.
+                  </p>
+                  {resendMessage && (
+                    <p className={`text-sm mt-2 ${resendMessage.type === 'success' ? 'text-green-700' : 'text-red-700'} flex items-center gap-1`}>
+                      {resendMessage.type === 'success' && <CheckCircle className="w-4 h-4" />}
+                      {resendMessage.text}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  onClick={handleResendVerification}
+                  disabled={resending || resendMessage?.type === 'success'}
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {resending ? 'Sending…' : 'Resend email'}
+                </Button>
+              </div>
+            </div>
+          )}
           {children}
         </main>
       </div>
