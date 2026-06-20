@@ -101,7 +101,6 @@ app.use('/api/rides', ridePaymentRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/vehicles', require('./routes/vehicleRoutes'));
 app.use('/api/service-fee', require('./routes/serviceFeeRoutes'));
-app.use('/api/mpesa', require('./routes/mpesaRoutes'));
 app.use('/api/paystack', require('./routes/paystackRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/profile', profileRoutes);

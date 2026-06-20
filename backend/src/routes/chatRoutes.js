@@ -19,8 +19,8 @@ router.get('/conversations/:conversation_id/messages', chatController.getConvers
 // Send a message in a conversation
 router.post('/conversations/:conversation_id/messages', chatController.sendMessage);
 
-// Pay for contact sharing
-router.post('/conversations/:conversation_id/payment', chatController.payForContactSharing);
+// Pay for contact sharing — removed. Paystack is now the single payment
+// provider. Use POST /api/paystack/initiate with purpose='connection_fee'.
 
 // Get payment status for a conversation
 router.get('/conversations/:conversation_id/payment/status', chatController.getPaymentStatus);

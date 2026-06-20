@@ -45,7 +45,7 @@ exports.addPaymentMethod = async (req, res) => {
     }
     
     // Validate payment method type
-    if (!['card', 'mpesa', 'bank'].includes(type)) {
+    if (!['card', 'bank'].includes(type)) {
       return res.status(400).json({ message: 'Invalid payment method type' });
     }
     
@@ -67,41 +67,6 @@ exports.addPaymentMethod = async (req, res) => {
     
     // Process different payment method types
     switch (type) {
-      case 'mpesa':
-        const { phone_number } = details;
-        if (!phone_number) {
-          return res.status(400).json({ message: 'Phone number is required for M-Pesa' });
-        }
-        
-        // Validate phone number format
-        const phoneRegex = /^\+254[0-9]{9}$/;
-        if (!phoneRegex.test(phone_number)) {
-          return res.status(400).json({ message: 'Invalid phone number format. Use +254XXXXXXXXX' });
-        }
-        
-        // Check if M-Pesa number already exists for this user
-        const { data: existingMpesa } = await supabase
-          .from('payment_methods')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('type', 'mpesa')
-          .eq('phone_number', phone_number)
-          .single();
-        
-        if (existingMpesa) {
-          return res.status(400).json({ message: 'This M-Pesa number is already added' });
-        }
-        
-        paymentMethodData = {
-          ...paymentMethodData,
-          phone_number,
-          name: 'M-Pesa',
-          is_default: isFirstMethod,
-          is_verified: true, // Auto-verify for quick payments
-          verified_at: new Date().toISOString()
-        };
-        break;
-        
       case 'card':
         const { card_number, cardholder_name, expiry_date, cvv } = details;
         
@@ -304,19 +269,12 @@ exports.verifyPaymentMethod = async (req, res) => {
       return res.status(400).json({ message: 'Payment method is already verified' });
     }
     
-    // For M-Pesa, we would integrate with Safaricom API for verification
-    // For cards, we would integrate with payment processors like Stripe
-    // For now, we'll simulate verification
-    
+    // For cards, we would integrate with payment processors like Stripe.
+    // For now, we'll simulate verification.
+
     let verificationSuccess = false;
-    
+
     switch (paymentMethod.type) {
-      case 'mpesa':
-        // Simulate M-Pesa verification
-        // In production, this would involve Safaricom's STK push or validation API
-        verificationSuccess = verification_code === '1234'; // Demo code
-        break;
-        
       case 'card':
         // Simulate card verification
         // In production, this would involve creating a small charge and verifying

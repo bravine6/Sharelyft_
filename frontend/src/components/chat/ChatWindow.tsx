@@ -20,14 +20,13 @@ interface ChatWindowProps {
 }
 
 export const ChatWindow = ({ conversation }: ChatWindowProps) => {
-  const { 
-    messages, 
-    sendMessage, 
-    fetchMessages, 
-    joinConversation, 
+  const {
+    messages,
+    sendMessage,
+    fetchMessages,
+    joinConversation,
     leaveConversation,
-    payForContactSharing,
-    error 
+    error
   } = useChat();
   
   // Get user role from conversation data
@@ -67,18 +66,6 @@ export const ChatWindow = ({ conversation }: ChatWindowProps) => {
       console.error('Failed to send message:', error);
     } finally {
       setSending(false);
-    }
-  };
-
-  const handlePayForContacts = async () => {
-    try {
-      setPaying(true);
-      await payForContactSharing(conversation.id, 'mpesa');
-      setShowPaymentPrompt(false);
-    } catch (error) {
-      console.error('Payment failed:', error);
-    } finally {
-      setPaying(false);
     }
   };
 
@@ -390,17 +377,12 @@ export const ChatWindow = ({ conversation }: ChatWindowProps) => {
                   <CreditCard className="w-4 h-4 mr-2" />
                   {paying ? 'Processing...' : 'Pay KES 50 via Paystack'}
                 </Button>
-                <Button
-                  onClick={handlePayForContacts}
-                  className="w-full"
-                  variant="outline"
-                  disabled={paying}
-                >
-                  {paying ? 'Processing...' : 'Pay KES 50 via M-Pesa (legacy)'}
-                </Button>
+                <p className="text-xs text-gray-500 text-center">
+                  Pay by card or M-Pesa via Paystack's secure checkout.
+                </p>
                 <Button
                   onClick={() => setShowPaymentPrompt(false)}
-                  variant="ghost"
+                  variant="outline"
                   className="w-full"
                   disabled={paying}
                 >

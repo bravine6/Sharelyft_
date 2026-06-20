@@ -176,34 +176,9 @@ export const useChat = () => {
     }
   }, [token, fetchConversations]);
 
-  // Pay for contact sharing
-  const payForContactSharing = useCallback(async (conversationId: string, paymentMethod: string = 'mpesa') => {
-    if (!token) return;
-
-    try {
-      const response = await fetch(`${API_URL}/chat/conversations/${conversationId}/payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ payment_method: paymentMethod })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Refresh conversations to update payment status
-        await fetchConversations();
-        return data;
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Payment failed');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
-      throw err;
-    }
-  }, [token, fetchConversations]);
+  // payForContactSharing removed — Paystack is now the single payment provider.
+  // ChatWindow now calls POST /api/paystack/initiate directly with
+  // purpose='connection_fee' and conversation_id in the body.
 
   // Get payment status
   const getPaymentStatus = useCallback(async (conversationId: string): Promise<PaymentStatus | null> => {
@@ -317,7 +292,6 @@ export const useChat = () => {
     fetchMessages,
     sendMessage,
     createConversation,
-    payForContactSharing,
     getPaymentStatus,
     joinConversation,
     leaveConversation,

@@ -16,14 +16,14 @@ router.get('/test', auth, async (req, res) => {
     res.json({
       success: true,
       message: 'Payment service test endpoint',
-      available_methods: ['stripe', 'mpesa', 'pesalink'],
+      available_methods: ['paystack', 'stripe', 'pesalink'],
       user: {
         id: req.user.id,
         email: req.user.email
       },
       environment: {
+        paystack_configured: !!process.env.PAYSTACK_SECRET_KEY,
         stripe_configured: !!process.env.STRIPE_SECRET_KEY,
-        mpesa_configured: !!(process.env.MPESA_CONSUMER_KEY && process.env.MPESA_CONSUMER_SECRET),
         pesalink_configured: !!(process.env.PESALINK_API_KEY && process.env.PESALINK_MERCHANT_ID)
       }
     });

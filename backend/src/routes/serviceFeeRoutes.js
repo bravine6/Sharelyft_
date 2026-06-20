@@ -3,8 +3,9 @@ const router = express.Router();
 const auth = require('../middlewares/authMiddleware');
 const serviceFeeController = require('../controllers/serviceFeeController');
 
-// Pay service fee (KSh 50 for driver or passenger)
-router.post('/pay', auth, serviceFeeController.payServiceFee);
+// M-Pesa payment removed — Paystack is now the single payment provider.
+// Connection-fee payments are initiated via POST /api/paystack/initiate with
+// purpose='connection_fee'. The endpoints below remain for status/history.
 
 // Get connection unlock status for a ride request
 router.get('/connection-status/:ride_request_id', auth, serviceFeeController.getConnectionStatus);

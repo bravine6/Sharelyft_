@@ -2,12 +2,11 @@ import { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  CreditCard, 
-  Smartphone, 
-  Building2, 
-  Plus, 
-  Trash2, 
+import {
+  CreditCard,
+  Building2,
+  Plus,
+  Trash2,
   Star,
   Check,
   AlertCircle
@@ -15,7 +14,7 @@ import {
 
 interface PaymentMethod {
   id: string;
-  type: 'card' | 'mpesa' | 'bank';
+  type: 'card' | 'bank';
   name: string;
   details: string;
   isDefault: boolean;
@@ -27,26 +26,17 @@ export default function PaymentMethodsPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
     {
       id: '1',
-      type: 'mpesa',
-      name: 'M-Pesa',
-      details: '+254 713 432 225',
-      isDefault: true,
-      isVerified: true,
-      lastUsed: '2024-01-15'
-    },
-    {
-      id: '2',
       type: 'card',
       name: 'Visa Card',
       details: '**** **** **** 1234',
-      isDefault: false,
+      isDefault: true,
       isVerified: true,
       lastUsed: '2024-01-10'
     }
   ]);
-  
+
   const [showAddMethod, setShowAddMethod] = useState(false);
-  const [selectedMethodType, setSelectedMethodType] = useState<'card' | 'mpesa' | 'bank'>('mpesa');
+  const [selectedMethodType, setSelectedMethodType] = useState<'card' | 'bank'>('card');
   const [isAddingMethod, setIsAddingMethod] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -57,10 +47,6 @@ export default function PaymentMethodsPage() {
     expiryDate: '',
     cvv: '',
     cardholderName: ''
-  });
-  
-  const [mpesaData, setMpesaData] = useState({
-    phoneNumber: ''
   });
   
   const [bankData, setBankData] = useState({
@@ -104,17 +90,7 @@ export default function PaymentMethodsPage() {
       let newMethod: PaymentMethod;
       const newId = (paymentMethods.length + 1).toString();
       
-      if (selectedMethodType === 'mpesa') {
-        newMethod = {
-          id: newId,
-          type: 'mpesa',
-          name: 'M-Pesa',
-          details: mpesaData.phoneNumber,
-          isDefault: paymentMethods.length === 0,
-          isVerified: false
-        };
-        setMpesaData({ phoneNumber: '' });
-      } else if (selectedMethodType === 'card') {
+      if (selectedMethodType === 'card') {
         newMethod = {
           id: newId,
           type: 'card',
@@ -152,8 +128,6 @@ export default function PaymentMethodsPage() {
     switch (type) {
       case 'card':
         return <CreditCard className="w-6 h-6" />;
-      case 'mpesa':
-        return <Smartphone className="w-6 h-6" />;
       case 'bank':
         return <Building2 className="w-6 h-6" />;
       default:
@@ -205,7 +179,6 @@ export default function PaymentMethodsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className={`p-3 rounded-full ${
-                      method.type === 'mpesa' ? 'bg-green-100 text-green-600' :
                       method.type === 'card' ? 'bg-blue-100 text-blue-600' :
                       'bg-purple-100 text-purple-600'
                     }`}>
@@ -304,9 +277,8 @@ export default function PaymentMethodsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Payment Method Type
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
-                    { type: 'mpesa' as const, name: 'M-Pesa', icon: Smartphone, color: 'green' },
                     { type: 'card' as const, name: 'Credit/Debit Card', icon: CreditCard, color: 'blue' },
                     { type: 'bank' as const, name: 'Bank Account', icon: Building2, color: 'purple' }
                   ].map(({ type, name, icon: Icon, color }) => (
@@ -344,21 +316,6 @@ export default function PaymentMethodsPage() {
 
               {/* Form Fields */}
               <div className="space-y-4 mb-6">
-                {selectedMethodType === 'mpesa' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      M-Pesa Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      value={mpesaData.phoneNumber}
-                      onChange={(e) => setMpesaData({ phoneNumber: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      placeholder="+254 712 345 678"
-                    />
-                  </div>
-                )}
-
                 {selectedMethodType === 'card' && (
                   <>
                     <div>
@@ -478,7 +435,6 @@ export default function PaymentMethodsPage() {
                   onClick={() => {
                     setShowAddMethod(false);
                     setCardData({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
-                    setMpesaData({ phoneNumber: '' });
                     setBankData({ accountNumber: '', bankName: '', accountName: '' });
                   }}
                 >

@@ -11,8 +11,8 @@ const chatController = {
         .from('conversations')
         .select(`
           *,
-          driver:user_profiles!conversations_driver_id_fkey(id, name, phone, email, avatar_url),
-          passenger:user_profiles!conversations_passenger_id_fkey(id, name, phone, email, avatar_url),
+          driver:user_profiles!conversations_driver_id_fkey(id, name, avatar_url),
+          passenger:user_profiles!conversations_passenger_id_fkey(id, name, avatar_url),
           ride:rides(id, origin, destination, departure_time, price_per_seat),
           last_message:messages(message_text, created_at, sender_id, message_type)
         `)
@@ -355,86 +355,9 @@ const chatController = {
     }
   },
 
-  // Pay for contact sharing
-  async payForContactSharing(req, res) {
-    try {
-      console.log('=== PAY FOR CONTACT SHARING ===');
-      const { conversation_id } = req.params;
-      const { payment_method, phone_number } = req.body;
-      const userId = req.user.id;
-
-      // Verify conversation exists and user has access
-      const { data: conversation, error: convError } = await supabase
-        .from('conversations')
-        .select('*')
-        .eq('id', conversation_id)
-        .single();
-
-      if (convError || !conversation) {
-        return res.status(404).json({ message: 'Conversation not found' });
-      }
-
-      if (conversation.driver_id !== userId && conversation.passenger_id !== userId) {
-        return res.status(403).json({ message: 'Access denied to this conversation' });
-      }
-
-      const isDriver = conversation.driver_id === userId;
-
-      // Drivers don't need to pay since they already paid for ride posting
-      if (isDriver) {
-        return res.status(400).json({ 
-          message: 'Drivers do not need to pay for contact sharing since you already paid to post the ride' 
-        });
-      }
-
-      // Check if passenger has already paid
-      if (!isDriver && conversation.passenger_paid) {
-        return res.status(400).json({ message: 'You have already paid for contact sharing' });
-      }
-
-      // Create payment record
-      const { data: payment, error: paymentError } = await supabase
-        .from('chat_payments')
-        .insert([{
-          conversation_id: conversation_id,
-          user_id: userId,
-          amount: 50.00, // 50 KES
-          payment_method: payment_method,
-          payment_status: 'completed' // For now, mark as completed immediately
-        }])
-        .select()
-        .single();
-
-      if (paymentError) {
-        console.error('Error creating payment:', paymentError);
-        return res.status(500).json({ message: 'Failed to process payment' });
-      }
-
-      // Update conversation payment status
-      const updateData = isDriver 
-        ? { driver_paid: true }
-        : { passenger_paid: true };
-
-      const { error: updateError } = await supabase
-        .from('conversations')
-        .update(updateData)
-        .eq('id', conversation_id);
-
-      if (updateError) {
-        console.error('Error updating conversation:', updateError);
-        return res.status(500).json({ message: 'Failed to update payment status' });
-      }
-
-      res.json({
-        message: 'Payment successful',
-        payment_id: payment.id,
-        both_paid: (isDriver ? conversation.passenger_paid : conversation.driver_paid)
-      });
-    } catch (error) {
-      console.error('Error in payForContactSharing:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  },
+  // payForContactSharing removed — Paystack is now the single payment provider.
+  // Passengers pay via POST /api/paystack/initiate (purpose: 'connection_fee'),
+  // which sets conversations.passenger_paid = true on success.
 
   // Get payment status for a conversation
   async getPaymentStatus(req, res) {

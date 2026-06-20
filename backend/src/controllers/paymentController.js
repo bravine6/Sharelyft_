@@ -1,6 +1,5 @@
 const stripeService = require('../services/stripeService');
 const pesalinkService = require('../services/pesalinkService');
-const mpesaService = require('../services/mpesaService');
 const supabase = require('../config/supabase');
 
 const paymentController = {
@@ -16,15 +15,6 @@ const paymentController = {
           enabled: !!process.env.STRIPE_SECRET_KEY,
           currencies: ['USD'],
           processing_fee: '2.9% + $0.30'
-        },
-        {
-          id: 'mpesa',
-          name: 'M-Pesa',
-          description: 'Pay with M-Pesa mobile money',
-          icon: 'smartphone',
-          enabled: !!(process.env.MPESA_CONSUMER_KEY && process.env.MPESA_CONSUMER_SECRET),
-          currencies: ['KES'],
-          processing_fee: 'KSh 0'
         },
         {
           id: 'pesalink',
@@ -127,15 +117,6 @@ const paymentController = {
         case 'stripe':
           paymentResult = await paymentController.processStripePayment(amount, transactionRef, rideRequest);
           break;
-        case 'mpesa':
-          if (!phoneNumber) {
-            return res.status(400).json({
-              success: false,
-              message: 'Phone number required for M-Pesa'
-            });
-          }
-          paymentResult = await paymentController.processMpesaPayment(phoneNumber, amount, transactionRef, rideRequest);
-          break;
         case 'pesalink':
           if (!phoneNumber && !bankAccount) {
             return res.status(400).json({
@@ -168,7 +149,6 @@ const paymentController = {
           user_id: userId,
           amount: amount,
           payment_method_type: paymentMethod,
-          mpesa_phone: phoneNumber,
           bank_account: bankAccount,
           transaction_reference: transactionRef,
           external_payment_id: paymentResult.external_id,
@@ -241,37 +221,6 @@ const paymentController = {
     }
   },
 
-  // Process M-Pesa payment
-  async processMpesaPayment(phoneNumber, amount, reference, rideRequest) {
-    try {
-      const callbackUrl = `${process.env.BACKEND_URL || 'https://sharelyft-backend.vercel.app'}/api/payments/mpesa/callback`;
-      
-      const result = await mpesaService.initiateSTKPush(
-        phoneNumber,
-        amount,
-        reference,
-        `ShareLyft Service Fee - ${rideRequest.ride.origin} to ${rideRequest.ride.destination}`,
-        callbackUrl
-      );
-
-      if (result.ResponseCode !== '0') {
-        return { success: false, error: result.ResponseDescription };
-      }
-
-      return {
-        success: true,
-        external_id: result.CheckoutRequestID,
-        external_reference: result.MerchantRequestID,
-        status: 'pending',
-        message: 'STK Push sent. Check your phone for M-Pesa prompt.',
-        data: {
-          checkoutRequestId: result.CheckoutRequestID
-        }
-      };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  },
 
   // Process PesaLink payment
   async processPesalinkPayment(phoneOrAccount, amount, reference, rideRequest) {

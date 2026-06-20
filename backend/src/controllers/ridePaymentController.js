@@ -50,13 +50,6 @@ exports.payRidePostingFee = async (req, res) => {
 
     try {
       switch (paymentMethod.type) {
-        case 'mpesa':
-          // In production, integrate with Safaricom M-Pesa API
-          // For demo purposes, simulate payment
-          paymentSuccess = true;
-          transactionId = `MP${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
-          break;
-
         case 'card':
           // In production, integrate with Stripe or other card processor
           // For demo purposes, simulate payment
