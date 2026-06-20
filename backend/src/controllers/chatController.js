@@ -38,13 +38,13 @@ const chatController = {
             avatar_url: otherUser.avatar_url
           },
           ride: conv.ride,
-          contact_shared: conv.contact_shared,
+          contact_shared: bothPaid,
           driver_paid: conv.driver_paid,
           passenger_paid: conv.passenger_paid,
           my_payment_status: isDriver ? conv.driver_paid : conv.passenger_paid,
           other_payment_status: isDriver ? conv.passenger_paid : conv.driver_paid,
           is_current_user_driver: isDriver,
-          contact_info: conv.contact_shared ? {
+          contact_info: bothPaid ? {
             my_info: isDriver ? conv.driver_contact_info : conv.passenger_contact_info,
             other_info: isDriver ? conv.passenger_contact_info : conv.driver_contact_info
           } : null,
@@ -381,11 +381,12 @@ const chatController = {
 
       const isDriver = conversation.driver_id === userId;
 
+      const bothPaid = !!(conversation.driver_paid && conversation.passenger_paid);
       res.json({
         my_payment_status: isDriver ? conversation.driver_paid : conversation.passenger_paid,
         other_payment_status: isDriver ? conversation.passenger_paid : conversation.driver_paid,
-        both_paid: conversation.driver_paid && conversation.passenger_paid,
-        contact_shared: conversation.contact_shared
+        both_paid: bothPaid,
+        contact_shared: bothPaid
       });
     } catch (error) {
       console.error('Error in getPaymentStatus:', error);
