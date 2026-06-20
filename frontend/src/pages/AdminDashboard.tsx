@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { API_URL } from '@/config';
 import {
   Users,
   Car,
@@ -126,7 +127,7 @@ export default function AdminDashboard() {
       const token = localStorage.getItem('token');
 
       // Fetch dashboard stats
-      const statsResponse = await fetch('/api/admin/dashboard', {
+      const statsResponse = await fetch(`${API_URL}/admin/dashboard`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -136,7 +137,7 @@ export default function AdminDashboard() {
       }
 
       // Fetch recent users
-      const usersResponse = await fetch('/api/admin/users?limit=5', {
+      const usersResponse = await fetch(`${API_URL}/admin/users?limit=5`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -146,7 +147,7 @@ export default function AdminDashboard() {
       }
 
       // Fetch recent rides
-      const ridesResponse = await fetch('/api/admin/rides?limit=5', {
+      const ridesResponse = await fetch(`${API_URL}/admin/rides?limit=5`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -156,7 +157,7 @@ export default function AdminDashboard() {
       }
 
       // Fetch recent payments
-      const paymentsResponse = await fetch('/api/admin/payments?limit=5', {
+      const paymentsResponse = await fetch(`${API_URL}/admin/payments?limit=5`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -166,7 +167,7 @@ export default function AdminDashboard() {
       }
 
       // Fetch driver verification documents
-      const verificationsResponse = await fetch('/api/admin/verifications', {
+      const verificationsResponse = await fetch(`${API_URL}/admin/verifications`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -185,7 +186,7 @@ export default function AdminDashboard() {
   const updateUserStatus = async (userId: string, updates: any) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/users/${userId}/status`, {
+      const response = await fetch(`${API_URL}/admin/users/${userId}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -211,7 +212,7 @@ export default function AdminDashboard() {
   ) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/verifications/${documentId}/review`, {
+      const response = await fetch(`${API_URL}/admin/verifications/${documentId}/review`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -245,7 +246,7 @@ export default function AdminDashboard() {
   const verifyUser = async (userId: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/users/${userId}/verify`, {
+      const response = await fetch(`${API_URL}/admin/users/${userId}/verify`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });

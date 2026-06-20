@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  X, 
-  AlertTriangle, 
-  Clock, 
+import { API_URL } from '@/config';
+import {
+  X,
+  AlertTriangle,
+  Clock,
   DollarSign,
   RefreshCw,
   CheckCircle,
@@ -51,7 +52,7 @@ export default function CancelBookingModal({
     try {
       setIsLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/rides/requests/${requestId}/cancellation-policy`, {
+      const response = await fetch(`${API_URL}/rides/requests/${requestId}/cancellation-policy`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -76,8 +77,8 @@ export default function CancelBookingModal({
       
       const token = localStorage.getItem('token');
       const endpoint = type === 'ride' 
-        ? `/api/rides/${requestId}/cancel`
-        : `/api/rides/requests/${requestId}/cancel`;
+        ? `${API_URL}/rides/${requestId}/cancel`
+        : `${API_URL}/rides/requests/${requestId}/cancel`;
 
       const response = await fetch(endpoint, {
         method: 'PATCH',

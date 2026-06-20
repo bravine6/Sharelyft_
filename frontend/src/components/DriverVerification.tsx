@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { API_URL } from '@/config';
 import {
   Shield,
   Upload,
@@ -84,7 +85,7 @@ export default function DriverVerification({ user: _user }: DriverVerificationPr
       if (mode === 'manual') setIsRefreshing(true);
 
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/driver/verification/status', {
+      const response = await fetch(`${API_URL}/driver/verification/status`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -144,7 +145,7 @@ export default function DriverVerification({ user: _user }: DriverVerificationPr
       formData.append('type', documentType);
 
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/driver/verification/upload', {
+      const response = await fetch(`${API_URL}/driver/verification/upload`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
