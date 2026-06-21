@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { API_URL } from '@/config';
+import { supabase } from '@/lib/supabase';
 
 interface User {
   id: string;
@@ -140,30 +141,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const loginWithGoogle = async () => {
+    // We use skipBrowserRedirect + explicit window.location.href to avoid the
+    // first-click-does-nothing bug. Letting the SDK auto-redirect during PKCE
+    // setup is racy — the implicit redirect can fire before the code_verifier
+    // has been persisted to storage, or not fire at all. Doing the navigation
+    // ourselves with the URL the SDK returns is deterministic.
     try {
       setIsLoading(true);
-      
-      // Import supabase client
-      const { supabase } = await import('@/lib/supabase');
-      
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
+          redirectTo: `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: true,
+        },
       });
 
       if (error) {
         throw new Error(error.message);
       }
 
-      // The OAuth flow will redirect to Google, then back to /auth/callback
-      // The actual login completion will be handled in the callback page
+      if (!data?.url) {
+        throw new Error('Google sign-in failed: no redirect URL returned.');
+      }
+
+      // Navigate manually. Leave isLoading=true since the page is going away.
+      window.location.href = data.url;
     } catch (error) {
       console.error('Google login error:', error);
-      throw error;
-    } finally {
       setIsLoading(false);
+      throw error;
     }
   };
 
