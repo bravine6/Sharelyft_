@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { API_URL } from '@/config';
 import { Car, CheckCircle, XCircle, Loader, Mail } from 'lucide-react';
 
 type Status = 'idle' | 'verifying' | 'success' | 'error';
@@ -31,8 +32,7 @@ export default function VerifyEmailPage() {
     setMessage('');
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/api/auth/verify-email`, {
+      const response = await fetch(`${API_URL}/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
