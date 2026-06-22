@@ -323,8 +323,23 @@ exports.resendEmailVerification = async (req, res) => {
     // Generate new verification token
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
     const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    
-    // Update profile with new token
+
+    // Send the email FIRST. Only commit the token rotation to the DB if the
+    // email actually goes out. Otherwise we'd invalidate any prior link the
+    // user already has, but leave them with no new one — locking them out.
+    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${emailVerificationToken}`;
+
+    try {
+      await emailService.sendEmailVerificationEmail(email, emailVerificationToken, verificationUrl);
+    } catch (mailErr) {
+      console.error('Failed to send verification email:', mailErr);
+      return res.status(500).json({
+        message: 'Could not send verification email. Please try again shortly.',
+        error: 'EMAIL_SEND_FAILED'
+      });
+    }
+
+    // Email went out — now safe to rotate the token in DB
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({
@@ -332,15 +347,14 @@ exports.resendEmailVerification = async (req, res) => {
         email_verification_expires: emailVerificationExpires.toISOString()
       })
       .eq('user_id', profile.user_id);
-    
+
     if (updateError) {
-      return res.status(500).json({ message: updateError.message });
+      // Edge case: email sent but DB write failed. The user got a fresh email
+      // but DB still has the old token, so the new link won't work. Log loudly.
+      console.error('[resendEmailVerification] Email sent but DB token update failed:', updateError);
+      return res.status(500).json({ message: 'Verification email sent but state update failed. Please try again.' });
     }
-    
-    // Send verification email
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${emailVerificationToken}`;
-    await emailService.sendEmailVerificationEmail(email, emailVerificationToken, verificationUrl);
-    
+
     res.json({ message: 'Verification email sent successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
