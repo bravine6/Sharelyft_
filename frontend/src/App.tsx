@@ -22,6 +22,7 @@ import { ChatPage } from './pages/ChatPage'
 import AdminDashboard from './pages/AdminDashboard'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import PaystackCallbackPage from './pages/PaystackCallbackPage'
+import PublicProfilePage from './pages/PublicProfilePage'
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/payment-methods" element={<PaymentMethodsPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/u/:profileId" element={<PublicProfilePage />} />
         </Route>
 
         {/* Fallback route */}

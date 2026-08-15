@@ -12,9 +12,9 @@ router.post('/google', authController.googleAuth);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 router.post('/verify-email', authController.verifyEmail);
-router.post('/verify-phone', authController.verifyPhone);
+router.post('/verify-phone', auth, authController.verifyPhone);
 router.post('/resend-email-verification', authController.resendEmailVerification);
-router.post('/resend-phone-verification', authController.resendPhoneVerification);
+router.post('/resend-phone-verification', auth, authController.resendPhoneVerification);
 
 // Protected routes (authentication required)
 router.get('/profile', auth, authController.getProfile);

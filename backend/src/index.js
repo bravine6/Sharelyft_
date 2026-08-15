@@ -104,6 +104,7 @@ app.use('/api/service-fee', require('./routes/serviceFeeRoutes'));
 app.use('/api/paystack', require('./routes/paystackRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/profile', profileRoutes);
+app.use('/api/profile/emergency-contact', require('./routes/emergencyContactRoutes'));
 app.use('/api/payment-methods', paymentMethodsRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/driver/verification', driverVerificationRoutes);

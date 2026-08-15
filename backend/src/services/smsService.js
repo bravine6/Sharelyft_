@@ -1,22 +1,37 @@
-const crypto = require('crypto');
+// SMS service backed by Africa's Talking.
+//
+// Replaces the previous Twilio implementation, which never worked reliably for
+// Kenyan numbers without geo-permission approval. AT is the local default and
+// works out of the box with a sandbox account.
+//
+// Env vars:
+//   AT_API_KEY    — Africa's Talking API key
+//   AT_USERNAME   — 'sandbox' for testing, your AT username for live
+//   AT_SENDER_ID  — optional sender ID (default: AT picks one)
 
 class SMSService {
   constructor() {
-    this.isProduction = process.env.NODE_ENV === 'production';
-    
-    // Twilio configuration
-    this.twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-    this.twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
-    this.twilioServiceSid = process.env.TWILIO_SERVICE_SID || 'VA08234ee8500dc47e3a337fec254ab483';
-    
-    // Initialize Twilio client if credentials are available
-    if (this.twilioAccountSid && this.twilioAuthToken) {
-      this.twilioClient = require('twilio')(this.twilioAccountSid, this.twilioAuthToken);
-      this.twilioEnabled = true;
-      console.log('Twilio SMS service initialized successfully');
+    this.apiKey = process.env.AT_API_KEY;
+    this.username = process.env.AT_USERNAME;
+
+    // Sandbox doesn't accept a custom sender ID — it returns InvalidSenderId.
+    // Only honor AT_SENDER_ID for live accounts that have an approved sender.
+    this.senderId =
+      this.username && this.username !== 'sandbox' && process.env.AT_SENDER_ID
+        ? process.env.AT_SENDER_ID
+        : undefined;
+
+    if (this.apiKey && this.username) {
+      const AfricasTalking = require('africastalking')({
+        apiKey: this.apiKey,
+        username: this.username,
+      });
+      this.sms = AfricasTalking.SMS;
+      this.enabled = true;
+      console.log(`SMS service initialized with Africa's Talking (${this.username})`);
     } else {
-      this.twilioEnabled = false;
-      console.log('Twilio credentials not found - SMS will be simulated');
+      this.enabled = false;
+      console.log("Africa's Talking credentials not found — SMS will be simulated");
     }
   }
 
@@ -25,169 +40,74 @@ class SMSService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  // Format phone number to international format
+  // Normalize phone number to international format (Kenyan defaults)
   formatPhoneNumber(phoneNumber) {
-    // Remove all non-digit characters except +
-    const cleaned = phoneNumber.replace(/[^+\d]/g, '');
-    
-    // If it starts with +254, use as is
-    if (cleaned.startsWith('+254')) {
-      return cleaned;
-    }
-    
-    // If it starts with 254, add +
-    if (cleaned.startsWith('254')) {
-      return '+' + cleaned;
-    }
-    
-    // If it starts with 0, replace with +254
-    if (cleaned.startsWith('0')) {
-      return '+254' + cleaned.substring(1);
-    }
-    
-    // If it starts with 7 (Kenyan mobile), add +254
-    if (cleaned.match(/^[7][0-9]{8}$/)) {
-      return '+254' + cleaned;
-    }
-    
-    // Add + if it doesn't exist and is international format
-    if (cleaned.match(/^\d{10,15}$/) && !cleaned.startsWith('+')) {
-      return '+' + cleaned;
-    }
-    
+    const cleaned = String(phoneNumber).replace(/[^+\d]/g, '');
+    if (cleaned.startsWith('+254')) return cleaned;
+    if (cleaned.startsWith('254')) return '+' + cleaned;
+    if (cleaned.startsWith('0')) return '+254' + cleaned.substring(1);
+    if (/^[7][0-9]{8}$/.test(cleaned)) return '+254' + cleaned;
+    if (/^\d{10,15}$/.test(cleaned) && !cleaned.startsWith('+')) return '+' + cleaned;
     return cleaned;
   }
 
+  // Core: send a raw SMS message
   async sendSMS(phoneNumber, message) {
+    const to = this.formatPhoneNumber(phoneNumber);
+
+    if (!this.enabled) {
+      console.log(`[SMS DEV] To: ${to}`);
+      console.log(`[SMS DEV] Message: ${message}`);
+      return { success: true, sid: 'dev-' + Date.now(), to };
+    }
+
     try {
-      const formattedNumber = this.formatPhoneNumber(phoneNumber);
-      
-      if (this.twilioEnabled) {
-        // Use Twilio Verify API for better deliverability and international support
-        if (this.twilioServiceSid) {
-          console.log(`[SMS] Sending via Twilio Verify to ${formattedNumber}: ${message}`);
-          
-          // For verification codes, use Twilio Verify API
-          if (message.includes('verification code')) {
-            try {
-              const verification = await this.twilioClient.verify.services(this.twilioServiceSid)
-                .verifications
-                .create({
-                  to: formattedNumber,
-                  channel: 'sms'
-                });
-              
-              console.log(`[SMS] Twilio Verify sent successfully. SID: ${verification.sid}`);
-              return { 
-                success: true, 
-                sid: verification.sid,
-                status: verification.status,
-                to: formattedNumber 
-              };
-            } catch (verifyError) {
-              console.log('[SMS] Twilio Verify failed, falling back to regular SMS:', verifyError.message);
-              // Fall back to regular SMS
-            }
-          }
-          
-          // Regular SMS fallback or for non-verification messages
-          const result = await this.twilioClient.messages.create({
-            body: message,
-            from: process.env.TWILIO_PHONE_NUMBER || this.twilioServiceSid,
-            to: formattedNumber
-          });
-          
-          console.log(`[SMS] Twilio SMS sent successfully. SID: ${result.sid}`);
-          return { 
-            success: true, 
-            sid: result.sid,
-            status: result.status,
-            to: formattedNumber 
-          };
-        } else {
-          throw new Error('Twilio Service SID not configured');
-        }
-      } else {
-        // Development mode - just log the SMS
-        console.log(`[SMS DEV] To: ${formattedNumber}`);
-        console.log(`[SMS DEV] Message: ${message}`);
-        return { success: true, sid: 'dev-sid-' + Date.now(), to: formattedNumber };
+      const options = { to: [to], message };
+      if (this.senderId) options.from = this.senderId;
+
+      const result = await this.sms.send(options);
+      const recipient = result?.SMSMessageData?.Recipients?.[0];
+
+      // AT returns Recipients with statusCode 101 (sent) or others (failed)
+      // See: https://developers.africastalking.com/docs/sms/sending/python
+      if (recipient && (recipient.statusCode === 101 || recipient.statusCode === 100)) {
+        console.log(`[SMS] Sent to ${to} — messageId ${recipient.messageId}`);
+        return {
+          success: true,
+          sid: recipient.messageId,
+          status: recipient.status,
+          to,
+        };
       }
+
+      // No recipient block or non-success status
+      const errMsg = recipient?.status || result?.SMSMessageData?.Message || 'SMS send failed';
+      console.error(`[SMS] Send failed to ${to}: ${errMsg}`, result);
+      return { success: false, error: errMsg, to };
     } catch (error) {
-      console.error('Error sending SMS:', error);
-      
-      // In development, don't throw error - just log and simulate success
-      if (!this.twilioEnabled) {
-        console.log('[SMS DEV] Simulating SMS send success despite error');
-        return { success: true, sid: 'dev-error-sid-' + Date.now(), error: error.message };
-      }
-      
+      console.error(`[SMS] Send error to ${to}:`, error.message || error);
       throw error;
     }
   }
 
+  // Send a verification code via SMS. The code itself is generated and stored
+  // by the auth controller; this just delivers it.
   async sendVerificationCode(phoneNumber, code) {
-    // If using Twilio Verify, send verification request
-    if (this.twilioEnabled && this.twilioServiceSid) {
-      try {
-        const formattedNumber = this.formatPhoneNumber(phoneNumber);
-        const verification = await this.twilioClient.verify.services(this.twilioServiceSid)
-          .verifications
-          .create({
-            to: formattedNumber,
-            channel: 'sms'
-          });
-        
-        console.log(`[SMS] Twilio Verify code sent to ${formattedNumber}. SID: ${verification.sid}`);
-        return { 
-          success: true, 
-          sid: verification.sid,
-          status: verification.status,
-          to: formattedNumber,
-          usesTwilioVerify: true
-        };
-      } catch (error) {
-        console.log('[SMS] Twilio Verify failed, falling back to custom code:', error.message);
-        // Fall back to sending custom code via regular SMS
-      }
-    }
-    
-    // Fallback: send custom verification code via regular SMS
-    const message = `Your ShareLyft verification code is: ${code}. This code will expire in 10 minutes. Do not share this code with anyone.`;
+    const message = `Your ShareLyft verification code is: ${code}. This code expires in 10 minutes. Do not share it with anyone.`;
     const result = await this.sendSMS(phoneNumber, message);
     return { ...result, usesTwilioVerify: false };
   }
 
-  async verifyPhoneCode(phoneNumber, code) {
-    // If using Twilio Verify, verify the code through Twilio
-    if (this.twilioEnabled && this.twilioServiceSid) {
-      try {
-        const formattedNumber = this.formatPhoneNumber(phoneNumber);
-        const verificationCheck = await this.twilioClient.verify.services(this.twilioServiceSid)
-          .verificationChecks
-          .create({
-            to: formattedNumber,
-            code: code
-          });
-        
-        console.log(`[SMS] Twilio Verify check result: ${verificationCheck.status}`);
-        return {
-          success: verificationCheck.status === 'approved',
-          status: verificationCheck.status,
-          sid: verificationCheck.sid
-        };
-      } catch (error) {
-        console.error('[SMS] Twilio Verify check failed:', error.message);
-        return { success: false, error: error.message };
-      }
-    }
-    
-    // If not using Twilio Verify, return null to indicate manual verification needed
+  // Kept for interface compatibility with the old Twilio Verify path.
+  // AT doesn't have an equivalent — verification codes are checked against
+  // our own DB by authController.verifyPhone. Always returns null so the
+  // controller falls through to its custom-code-check path.
+  async verifyPhoneCode(_phoneNumber, _code) {
     return null;
   }
 
   async sendWelcomeSMS(phoneNumber, name) {
-    const message = `Hi ${name}! Welcome to ShareLyft. Your phone number has been verified successfully. Start sharing rides and saving money today!`;
+    const message = `Hi ${name || 'there'}! Welcome to ShareLyft. Your phone number is verified. Start sharing rides today!`;
     return await this.sendSMS(phoneNumber, message);
   }
 

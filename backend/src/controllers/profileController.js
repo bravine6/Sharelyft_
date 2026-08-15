@@ -2,6 +2,54 @@ const supabase = require('../config/supabase');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
+const { normalizePhone } = require('../utils/phone');
+
+// Get PUBLIC profile — sanitized view of another user's profile.
+// Returns only what's safe to show a stranger; excludes email, phone,
+// national_id, DOB, gender, emergency contact, verification codes, etc.
+exports.getPublicProfile = async (req, res) => {
+  try {
+    const { profileId } = req.params;
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('id, first_name, last_name, profile_photo, bio, user_type, email_verified, phone_verified, verification_status, created_at')
+      .eq('id', profileId)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    // If driver, also include a count of verified documents (for the trust badge)
+    let verifiedDocumentsCount = null;
+    if (data.user_type === 'driver') {
+      const { count } = await supabase
+        .from('driver_verification_documents')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', profileId)
+        .eq('status', 'verified');
+      verifiedDocumentsCount = count || 0;
+    }
+
+    res.json({
+      id: data.id,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      full_name: [data.first_name, data.last_name].filter(Boolean).join(' '),
+      profile_photo: data.profile_photo,
+      bio: data.bio,
+      user_type: data.user_type,
+      email_verified: !!data.email_verified,
+      phone_verified: !!data.phone_verified,
+      verification_status: data.verification_status,
+      member_since: data.created_at,
+      driver_documents_verified: verifiedDocumentsCount,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // Get user profile
 exports.getProfile = async (req, res) => {
@@ -31,7 +79,19 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const { user } = req;
-    const { first_name, phone, user_type, national_id, date_of_birth, gender } = req.body;
+    const {
+      first_name,
+      last_name,
+      phone,
+      user_type,
+      national_id,
+      date_of_birth,
+      gender,
+      bio,
+    } = req.body;
+    // Emergency contacts intentionally NOT accepted here — they live in a
+    // separate protected table (user_emergency_contacts) with a dedicated
+    // endpoint. Sending them via this route is silently ignored.
 
     if (!first_name || !phone) {
       return res.status(400).json({ message: 'First name and phone are required' });
@@ -41,25 +101,56 @@ exports.updateProfile = async (req, res) => {
       return res.status(400).json({ message: 'Invalid user type' });
     }
 
-    if (phone !== user.phone) {
-      const { data: existingUser } = await supabase
+    // Normalize both sides so format differences (+254 713 432 225 vs
+    // +254713432225 vs 0713432225) don't create false phone-changed positives
+    // or bypass the uniqueness check.
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone || !/^\+?\d{10,15}$/.test(normalizedPhone)) {
+      return res.status(400).json({ message: 'Invalid phone number format' });
+    }
+    const normalizedUserPhone = normalizePhone(user.phone);
+    const phoneChanged = normalizedPhone !== normalizedUserPhone;
+
+    if (phoneChanged) {
+      const { data: existingUsers } = await supabase
         .from('user_profiles')
         .select('id')
-        .eq('phone', phone)
-        .neq('id', user.id)
-        .single();
+        .eq('phone', normalizedPhone)
+        .neq('id', user.id);
 
-      if (existingUser) {
-        return res.status(400).json({ message: 'Phone number already in use' });
+      if (existingUsers && existingUsers.length > 0) {
+        return res.status(400).json({
+          message: 'This phone number is already registered to another account.',
+          error: 'PHONE_ALREADY_IN_USE'
+        });
       }
     }
 
     const updateData = {
       first_name,
-      phone,
+      phone: normalizedPhone,
       user_type: user_type || user.user_type,
       updated_at: new Date().toISOString()
     };
+
+    // If phone changed, the new number is UNVERIFIED. Reset the flag and clear
+    // any stale verification code so the user must re-verify from /profile.
+    if (phoneChanged) {
+      updateData.phone_verified = false;
+      updateData.phone_verification_code = null;
+      updateData.phone_verification_expires = null;
+      updateData.uses_twilio_verify = null;
+    }
+
+    // Freely-editable optional fields
+    if (last_name !== undefined) updateData.last_name = last_name || null;
+    if (bio !== undefined) {
+      if (bio && bio.length > 300) {
+        return res.status(400).json({ message: 'Bio must be 300 characters or fewer' });
+      }
+      updateData.bio = bio || null;
+    }
+    // emergency contact fields removed — handled by separate endpoint
 
     // First-time-fillable identity fields: only accept when currently null in DB
     if (national_id) {
@@ -103,8 +194,9 @@ exports.updateProfile = async (req, res) => {
       .eq('id', user.id)
       .select()
       .single();
-    
+
     if (error) {
+      console.error('[updateProfile] Supabase update error:', error);
       return res.status(400).json({ message: error.message });
     }
     

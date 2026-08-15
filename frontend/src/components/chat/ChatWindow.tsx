@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useChat, Conversation } from '@/hooks/useChat';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ interface ChatWindowProps {
 }
 
 export const ChatWindow = ({ conversation }: ChatWindowProps) => {
+  const navigate = useNavigate();
   const {
     messages,
     sendMessage,
@@ -241,7 +243,12 @@ export const ChatWindow = ({ conversation }: ChatWindowProps) => {
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-white">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => navigate(`/u/${conversation.other_user.id}`)}
+            className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-green-400 transition"
+            aria-label={`View ${conversation.other_user.name}'s profile`}
+          >
             {conversation.other_user.avatar_url ? (
               <img
                 src={conversation.other_user.avatar_url}
@@ -251,10 +258,16 @@ export const ChatWindow = ({ conversation }: ChatWindowProps) => {
             ) : (
               <User className="w-6 h-6 text-gray-500" />
             )}
-          </div>
-          
-          <div className="flex-1">
-            <h3 className="font-medium">{conversation.other_user.name}</h3>
+          </button>
+
+          <div className="flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate(`/u/${conversation.other_user.id}`)}
+              className="font-medium text-left hover:underline"
+            >
+              {conversation.other_user.name}
+            </button>
             <div className="flex items-center gap-1 text-sm text-gray-600">
               <MapPin className="w-3 h-3" />
               <span className="truncate">

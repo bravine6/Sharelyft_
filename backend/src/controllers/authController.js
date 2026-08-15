@@ -126,17 +126,24 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: profileError.message });
     }
     
-    // Send verification email
+    // Send verification email (best-effort — don't fail signup if email errors)
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${emailVerificationToken}`;
-    await emailService.sendEmailVerificationEmail(email, emailVerificationToken, verificationUrl);
-    
-    // Skip SMS verification for now - allow users to verify later
-    console.log(`[DEV] Phone verification code for ${phone}: ${phoneVerificationCode}`);
-    
-    res.status(201).json({ 
-      message: 'User registered successfully. Please check your email for verification. You can verify your phone number later from your profile.',
-      email_sent: true,
-      phone_verification_code: phoneVerificationCode // For development only
+    let emailSent = true;
+    try {
+      await emailService.sendEmailVerificationEmail(email, emailVerificationToken, verificationUrl);
+    } catch (mailErr) {
+      console.error('[register] verification email send failed:', mailErr.message);
+      emailSent = false;
+    }
+
+    // SMS at signup intentionally NOT sent — users verify their phone later
+    // from the profile page via /api/auth/resend-phone-verification. The code
+    // is still generated and stored, so the verify-phone endpoint will work
+    // once they trigger the send themselves.
+
+    res.status(201).json({
+      message: 'User registered successfully. Check your email for verification. You can verify your phone from your profile.',
+      email_sent: emailSent,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -211,72 +218,40 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-// Verify phone number
+// Verify phone number — authenticated. Looks up by JWT, not by phone.
 exports.verifyPhone = async (req, res) => {
   try {
-    const { phone, code } = req.body;
-    
-    if (!phone || !code) {
-      return res.status(400).json({ message: 'Phone number and verification code are required' });
+    const { code } = req.body;
+    const profile = req.user;
+
+    if (!code) {
+      return res.status(400).json({ message: 'Verification code is required' });
     }
-    
-    // Find user profile by phone
-    const { data: profile, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('phone', phone)
-      .single();
-    
-    if (error || !profile) {
-      return res.status(400).json({ message: 'Phone number not found' });
+
+    if (!profile || !profile.phone) {
+      return res.status(400).json({ message: 'No phone number on file' });
     }
 
     if (profile.phone_verified) {
       return res.status(400).json({ message: 'Phone number is already verified' });
     }
-    
-    let verificationSuccess = false;
-    
-    // Try Twilio Verify first if the profile uses it
-    if (profile.uses_twilio_verify) {
-      const twilioResult = await smsService.verifyPhoneCode(phone, code);
-      if (twilioResult) {
-        verificationSuccess = twilioResult.success;
-        if (!verificationSuccess) {
-          return res.status(400).json({ 
-            message: 'Invalid verification code',
-            details: twilioResult.error 
-          });
-        }
-      }
+
+    if (!profile.phone_verification_code || profile.phone_verification_code !== code) {
+      return res.status(400).json({ message: 'Invalid verification code' });
     }
-    
-    // Fallback to custom verification code if not using Twilio Verify
-    if (!verificationSuccess && !profile.uses_twilio_verify) {
-      if (!profile.phone_verification_code || profile.phone_verification_code !== code) {
-        return res.status(400).json({ message: 'Invalid verification code' });
-      }
-      
-      // Check if code is expired
-      if (profile.phone_verification_expires && new Date() > new Date(profile.phone_verification_expires)) {
-        return res.status(400).json({ message: 'Verification code has expired' });
-      }
-      
-      verificationSuccess = true;
+
+    if (profile.phone_verification_expires && new Date() > new Date(profile.phone_verification_expires)) {
+      return res.status(400).json({ message: 'Verification code has expired. Please request a new one.' });
     }
-    
-    if (!verificationSuccess) {
-      return res.status(400).json({ message: 'Verification failed' });
-    }
-    
-    // Update user profile - mark phone as verified
+
+    // Mark phone as verified
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({
         phone_verified: true,
         phone_verification_code: null,
         phone_verification_expires: null,
-        uses_twilio_verify: null // Clear the flag
+        uses_twilio_verify: null
       })
       .eq('user_id', profile.user_id);
     
@@ -284,12 +259,14 @@ exports.verifyPhone = async (req, res) => {
       return res.status(500).json({ message: updateError.message });
     }
     
-    // Send welcome SMS and email if both are verified
+    // Welcome notifications are best-effort — do NOT block verification on them.
     if (profile.email_verified) {
-      await smsService.sendWelcomeSMS(profile.phone, profile.first_name || profile.name);
-      await emailService.sendWelcomeEmail(profile.email, profile.first_name || profile.name);
+      smsService.sendWelcomeSMS(profile.phone, profile.first_name || profile.name)
+        .catch((e) => console.warn('[verifyPhone] welcome SMS failed (non-fatal):', e.message));
+      emailService.sendWelcomeEmail(profile.email, profile.first_name || profile.name)
+        .catch((e) => console.warn('[verifyPhone] welcome email failed (non-fatal):', e.message));
     }
-    
+
     res.json({ message: 'Phone number verified successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -361,35 +338,48 @@ exports.resendEmailVerification = async (req, res) => {
   }
 };
 
-// Resend phone verification
+// Resend phone verification — authenticated endpoint. Looks up the user via
+// JWT, not by phone, so we don't depend on phone-format matching.
 exports.resendPhoneVerification = async (req, res) => {
   try {
-    const { phone } = req.body;
-    
-    if (!phone) {
-      return res.status(400).json({ message: 'Phone number is required' });
+    // req.user is populated by authMiddleware (the user_profiles row, spread)
+    const profile = req.user;
+
+    if (!profile || !profile.phone) {
+      return res.status(400).json({
+        message: 'No phone number on file. Please add one to your profile first.'
+      });
     }
-    
-    // Find user profile
-    const { data: profile, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('phone', phone)
-      .single();
-    
-    if (error || !profile) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
+
     if (profile.phone_verified) {
       return res.status(400).json({ message: 'Phone number is already verified' });
     }
+
+    const phone = profile.phone;
     
     // Generate new verification code
     const phoneVerificationCode = smsService.generateVerificationCode();
     const phoneVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
-    
-    // Update profile with new code
+
+    // Send SMS FIRST. Only rotate the code in DB if SMS goes out — otherwise
+    // we'd invalidate a code the user might still hold from a previous send.
+    try {
+      const smsResult = await smsService.sendVerificationCode(phone, phoneVerificationCode);
+      if (smsResult && smsResult.success === false) {
+        return res.status(500).json({
+          message: 'Could not send verification SMS. Please try again shortly.',
+          error: 'SMS_SEND_FAILED'
+        });
+      }
+    } catch (smsErr) {
+      console.error('[resendPhoneVerification] SMS send failed:', smsErr.message);
+      return res.status(500).json({
+        message: 'Could not send verification SMS. Please try again shortly.',
+        error: 'SMS_SEND_FAILED'
+      });
+    }
+
+    // SMS sent — now safe to rotate the code in DB
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({
@@ -397,26 +387,12 @@ exports.resendPhoneVerification = async (req, res) => {
         phone_verification_expires: phoneVerificationExpires.toISOString()
       })
       .eq('user_id', profile.user_id);
-    
+
     if (updateError) {
-      return res.status(500).json({ message: updateError.message });
+      console.error('[resendPhoneVerification] SMS sent but DB code update failed:', updateError);
+      return res.status(500).json({ message: 'SMS sent but state update failed. Please try again.' });
     }
-    
-    // Send verification SMS
-    const smsResult = await smsService.sendVerificationCode(phone, phoneVerificationCode);
-    
-    // If using Twilio Verify, clear custom code and set flag
-    if (smsResult.usesTwilioVerify) {
-      await supabase
-        .from('user_profiles')
-        .update({
-          phone_verification_code: null,
-          phone_verification_expires: null,
-          uses_twilio_verify: true
-        })
-        .eq('user_id', profile.user_id);
-    }
-    
+
     res.json({ message: 'Verification code sent successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

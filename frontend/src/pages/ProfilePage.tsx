@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { API_URL } from '@/config';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import DriverVerification from '@/components/DriverVerification';
+import PhoneVerification from '@/components/PhoneVerification';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -31,22 +32,30 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState('');
   const [profileData, setProfileData] = useState({
     first_name: '',
+    last_name: '',
     phone: '',
     user_type: 'passenger' as 'driver' | 'passenger',
     national_id: '',
     date_of_birth: '',
-    gender: '' as '' | 'male' | 'female' | 'other'
+    gender: '' as '' | 'male' | 'female' | 'other',
+    bio: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: ''
   });
 
   useEffect(() => {
     if (user) {
       setProfileData({
         first_name: user.first_name || '',
+        last_name: (user as any).last_name || '',
         phone: user.phone || '',
         user_type: user.user_type || 'passenger',
         national_id: user.national_id || '',
         date_of_birth: user.date_of_birth ? user.date_of_birth.split('T')[0] : '',
-        gender: (user.gender as '' | 'male' | 'female' | 'other') || ''
+        gender: (user.gender as '' | 'male' | 'female' | 'other') || '',
+        bio: (user as any).bio || '',
+        emergency_contact_name: (user as any).emergency_contact_name || '',
+        emergency_contact_phone: (user as any).emergency_contact_phone || ''
       });
     }
   }, [user]);
@@ -76,11 +85,14 @@ export default function ProfilePage() {
       setError('');
       setSuccess('');
 
-      // Strip empty optional fields so backend treats them as "not provided"
+      // Emergency contact fields are saved via their own protected endpoint,
+      // not this one — see EmergencyContact component.
       const payload: Record<string, string> = {
         first_name: profileData.first_name,
         phone: profileData.phone,
         user_type: profileData.user_type,
+        last_name: profileData.last_name,
+        bio: profileData.bio,
       };
       if (profileData.national_id) payload.national_id = profileData.national_id;
       if (profileData.date_of_birth) payload.date_of_birth = profileData.date_of_birth;
@@ -101,15 +113,18 @@ export default function ProfilePage() {
   };
 
   const handleCancel = () => {
-    // Reset to original values
     if (user) {
       setProfileData({
         first_name: user.first_name || '',
+        last_name: (user as any).last_name || '',
         phone: user.phone || '',
         user_type: user.user_type || 'passenger',
         national_id: user.national_id || '',
         date_of_birth: user.date_of_birth ? user.date_of_birth.split('T')[0] : '',
-        gender: (user.gender as '' | 'male' | 'female' | 'other') || ''
+        gender: (user.gender as '' | 'male' | 'female' | 'other') || '',
+        bio: (user as any).bio || '',
+        emergency_contact_name: (user as any).emergency_contact_name || '',
+        emergency_contact_phone: (user as any).emergency_contact_phone || ''
       });
     }
     setIsEditing(false);
@@ -490,6 +505,26 @@ export default function ProfilePage() {
                     )}
                   </div>
 
+                  {/* Last Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <User className="w-4 h-4 inline mr-2" />
+                      Last Name
+                    </label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="last_name"
+                        value={profileData.last_name}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="Enter your last name"
+                      />
+                    ) : (
+                      <p className="text-gray-900 py-2">{(user as any).last_name || <span className="text-gray-400">Not set</span>}</p>
+                    )}
+                  </div>
+
                   {/* Email (Read-only) */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -632,9 +667,41 @@ export default function ProfilePage() {
                     )}
                   </div>
                 </div>
+
+                {/* Bio — full width below the grid */}
+                <div className="mt-6 pt-6 border-t">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <User className="w-4 h-4 inline mr-2" />
+                    About You <span className="text-gray-400 font-normal">(optional, up to 300 characters)</span>
+                  </label>
+                  {isEditing ? (
+                    <>
+                      <textarea
+                        name="bio"
+                        value={profileData.bio}
+                        onChange={handleInputChange}
+                        maxLength={300}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="A short bio shown to other users (e.g. 'Nairobi-based driver, quiet rides preferred')"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">{profileData.bio.length}/300</p>
+                    </>
+                  ) : (
+                    <p className="text-gray-900 py-2 whitespace-pre-wrap">
+                      {(user as any).bio || <span className="text-gray-400">Not set</span>}
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
+
           </div>
+        </div>
+
+        {/* Phone Verification — only renders when phone is set but unverified */}
+        <div className="mt-8">
+          <PhoneVerification user={user} />
         </div>
 
         {/* Driver Verification Section - Only show for drivers */}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '@/config';
+import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,12 @@ import {
 } from 'lucide-react';
 
 export default function SettingsPage() {
-  
+  const { user } = useAuth();
+
+  // Google OAuth users have no local password — hide the whole password section.
+  // Signals: presence of google_id on the user object.
+  const isGoogleOnly = !!(user as any)?.google_id;
+
   // Password Change State
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordData, setPasswordData] = useState({
@@ -264,7 +270,12 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {!showPasswordForm ? (
+              {isGoogleOnly ? (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-900">
+                  You signed in with Google. Your password is managed through your Google account
+                  — there's nothing to change here.
+                </div>
+              ) : !showPasswordForm ? (
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-gray-900">Password</p>

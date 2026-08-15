@@ -20,6 +20,9 @@ const upload = multer({
   }
 });
 
+// Public profile — any logged-in user can view another user's sanitized profile
+router.get('/public/:profileId', authMiddleware, profileController.getPublicProfile);
+
 // Profile routes
 router.get('/', authMiddleware, profileController.getProfile);
 router.put('/', authMiddleware, profileController.updateProfile);
